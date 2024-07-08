@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="en"><Esri><CreaDate>20180201</CreaDate><CreaTime>10102200</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="c:\program files (x86)\arcgis\desktop10.2\ArcToolbox\Toolboxes\Conversion Tools.tbx\RasterToASCII" Date="20180201" Time="101022">RasterToASCII rastercalc15_HF C:\Users\kamuz\Documents\PhD1GIS\ABM\Proximity\GIS\Raster\data\prox_healthfacilities.ASC</Process></lineage></DataProperties></Esri></metadata>
