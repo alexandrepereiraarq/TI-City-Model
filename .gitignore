@@ -1,0 +1,5 @@
+
+.*.tmp.nlogo
+/notebooks/cache
+ti-city-model.code-workspace
+docs/~$*.xlsx
