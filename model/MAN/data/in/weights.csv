@@ -1,0 +1,7 @@
+﻿agent,suburban,neighbour,bu,cbd,mall,markets,road,density,schools,attractive,health,random,water
+dp,3,9,9,4,2,7,3,9,4,2,2,1,10
+li,8,7,9,7,2,7,8,9,4,2,4,1,7
+mi,6,7,7,4,7,7,6,6,4,7,4,1,5
+hi,5,7,2,7,9,6,5,1,4,10,3,1,8
+mi_red,7,0,0,0,0,0,8,0,5,7,0,0,0
+hi_red,6,0,0,0,0,0,8,0,5,10,0,0,0
