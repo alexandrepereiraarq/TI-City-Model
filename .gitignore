@@ -3,3 +3,9 @@
 /notebooks/cache
 ti-city-model.code-workspace
 docs/~$*.xlsx
+*.tif*
+*.tiff
+*.asc*
+/model/MAN/data/
+/model/JAK/data/
+/model/MUM/data/
