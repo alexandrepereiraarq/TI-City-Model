@@ -1,0 +1,2611 @@
+<?xml version="1.0" encoding="utf-8"?>
+<model version="NetLogo 7.0.3" snapToGrid="false">
+  <code><![CDATA[;;.....................................................................
+;; CHANGELOG FROM ORIGINAL CODE
+;; see docs\changelog.md
+;;.....................................................................
+
+extensions [ gis csv]
+
+globals [
+  road-dataset
+  ;; DATASETS ;; APS: created subtitle for organisation, organised alphabetically
+  airport-dataset
+  airport-vector
+  attractive-early-dataset ;; APS: this dataset is only loaded for the calibration model
+  attractive-late-dataset
+  bu-early-dist-dataset ;; APS: this dataset is only loaded for the calibration model
+  bu-late-dist-dataset
+  cbd-dataset
+  districts-dataset
+  density-early-dataset
+  density-late-dataset
+  healthfacilities-dataset
+  income-dataset
+  markets-dataset
+  landvalue-dataset
+  urban-late-dataset
+  urban-early-dataset
+  road-presence-dataset
+  roads-dataset
+  schools-dataset
+  shoppingmalls-dataset
+  slope-dataset
+  suburban-dataset
+  structureplan-dataset
+  tenure-dataset
+  water-dataset ;; APS: created to support attracting development to the coastline
+  exposed-dataset ;; APS: exposure layer (0=none, 1=low, 2=moderate, 3=high)
+  ssp-dataset ;; APS: created to support scenario implementation
+
+  ;; PROPERTIES ;; APS: created subtitle for organisation
+  slope_max
+  develop_prob
+  exclusion-dataset
+  ;;the-row
+  rows
+  select-mode
+  total-avail-patches
+  available-first-n-UDP
+  available-first-n-ULI
+  available-first-n-UMI
+  available-first-n-UHI
+
+  ;; APS: agent utility weights
+  ;; deprived agents
+  dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed
+  exposed ;; APS: exposure level (0=none, 1=low, 2=moderate, 3=high)
+  dpu-maxof dp-rad
+  ;; low income agents
+  liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed
+  liu-maxof li-rad
+  ;; middle income agents
+  miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed
+  miu-maxof mi-rad
+  ;; high income agents
+  hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed
+  hiu-maxof hi-rad
+  ;; middle-end real estate developer agents
+  mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope mi-red-exposed
+  mi-red-maxof mi-red-rad
+  ;; high-end real estate developer agents
+  hi-red-maxof hi-red-rad
+  hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope hi-red-exposed
+  dp-w-list li-w-list mi-w-list hi-w-list
+
+  ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
+  ;;track-neighbourhood-changes?
+  neighbourhood-changes-DP
+  neighbourhood-changes-LI
+  neighbourhood-changes-MI
+  neighbourhood-changes-HI]
+
+;;.....................................................................
+;;.....................................................................
+
+
+;; DEFINE PARCEL ATTRIBUTES
+patches-own [
+  ;; PROPERTIES READ FROM INPUTS APS included subtitle for better organisation
+  airport
+  airport-dist
+  nom-airport-dist
+  attractive
+  bu;; proximity to built-up. The reference year is defined by the "calibrate?" switch
+  cbd
+  districts
+  density
+  density-flip
+  exclusion
+  ;;exposed ;; APS: created 
+  income-patch ;; APS: created patches-own
+  healthfacilities
+  landvalue
+  markets
+  neighbourhood
+  water
+  ;;neighbourhood-early
+
+  nom-neighbourhood
+  road ;; FA: proximity to road
+  road-presence ;; FA: whether or not there is road
+  suburb
+  suburb-area ;; FA: to define patches within a specified radius of suburbs
+  shoppingmall
+  schools
+  slope
+  slope-pct
+  nom-slope
+  structureplan
+  tenure
+  urban
+  ;;urban-early
+
+  ;; CALCULATED PROPERTIES
+  ;;attract-early-area
+  attract-area
+  informality
+  informal_avail ;; informal lands that are available for development
+  suitability
+  households-left-to-settle
+
+  ;; MOVEMENT VALUES
+  LI-movement ;; FA: whether or not low income household has moved to a parcel
+  HI-movement ;; FA: whether or not high income household has moveed to a parcel
+  MI-movement ;; FA: whether or not mid income household has moved to a parcel
+  DP-movement ;; APS: whether or not deprived household has moved to a parcel
+  pHED-movement ;; FA: whether or not high end estate developer has moved to a parcel
+  pMED-movement ;; FA: whether or not mid end estate developer has moved to a parcel
+
+  new-urban ;; FA: all new developments
+  urban-type ;; APS: reports the urban (income) status of the patch, similar to the colors.
+  informal-status ;; APS: reports the informal status of the patch, similar to the colors.
+
+  ;; UTILITY FUNCTION VALUES
+  UDP ;; APS: utility for deprived households
+  ULI ;; utility for low income households
+  UHI ;; utility for high income households
+  UMI ;; Utility for mid income households
+  UHED ;; Utility for High end estate developers
+  UMED ;; Utility for mid end estate developers
+  first-n-UDP ;; whether the patch has one of the highest deprived utility
+  first-n-ULI ;; whether the patch has one of the highest low income utility
+  first-n-UHI ;; whether the patch has one of the highest high income utility
+  first-n-UMI ;; whether the patch has one of the highest middle income utility
+  first-n-UHED ;; whether the patch has one of the highest utilities for high end estate developers
+  first-n-UMED ;; whether the patch has one of the highest utilities for mid end estate developers
+  neighbourhood-changed?  ;; DEBUG: tracks if patch changed in update-neighbourhood
+]
+;;................................................................................................
+;;................................................................................................
+
+
+;; CREATE HOUSEHOLDS AND DEVELOPERS
+breed [ households household ]
+households-own [
+  income-status
+  income
+  DPH-movement
+  LIH-movement
+  HIH-movement
+  MIH-movement
+  ]
+;;.................................................
+
+breed [ developers developer ]
+developers-own [
+  class
+HED-movement
+MED-movement]
+;;.................................................
+
+;; APS: new function to help set the weights
+to set-weights
+  set [dp-w-list li-w-list mi-w-list hi-w-list] [[][][][]]
+  ;; code based on https://github.com/NetLogo/models/blob/master/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogo
+  file-close-all ;; Close any open files
+  file-open "./data/in/weights.csv"
+  let data csv:from-file  "./data/in/weights.csv"
+  let dp-weight item 1 data ;; I skip the first row as it contains only the headers
+  let li-weight item 2 data
+  let mi-weight item 3 data
+  let hi-weight item 4 data
+
+  ;; deprived agents
+  let i 0
+  repeat length dp-weight [
+    let w item i dp-weight
+    if i > 0 [set dp-w-list lput w dp-w-list] ;; I skip the first column, as it contains the line header (e.g., 'dp')
+    set i i + 1
+  ]
+  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed ] dp-w-list
+  set dpu-maxof 2
+  set dp-rad 2
+
+  ;; low income agents
+  set i 0
+  repeat length li-weight [
+    let w item i li-weight
+    if i > 0 [set li-w-list lput w li-w-list]
+    set i i + 1
+  ]
+  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed ] li-w-list
+  set liu-maxof 1.5
+  set li-rad 1
+
+  ;; middle income agents
+  set i 0
+  repeat length mi-weight [
+    let w item i mi-weight
+    if i > 0 [set mi-w-list lput w mi-w-list]
+    set i i + 1
+  ]
+  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed ] mi-w-list
+  set miu-maxof 1.5
+  set mi-rad 3
+
+  ;; high income agents
+  set i 0
+  repeat length hi-weight [
+    let w item i hi-weight
+    if i > 0 [set hi-w-list lput w hi-w-list]
+    set i i + 1
+  ]
+  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed ] hi-w-list
+  set hiu-maxof 4
+  set hi-rad 3
+
+  ;; mid RED
+  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope]
+  [7 0 0 0 0 0 8 0 5 7 0 0 0 7]
+  set mi-red-maxof 2
+  set mi-red-rad 2
+
+  ;; high RED
+  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope]
+  [6 0 0 0 0 0 8 0 5 10 0 0 0 0]
+  set hi-red-maxof 2
+  set hi-red-rad 2
+
+  file-close
+
+end
+
+to set-scenarios
+;; Standard scenario
+  (ifelse
+    scenario = "standard"
+    [ set
+      [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
+      [  33334 10 43 20 27 80 17 50 ]
+      load-exclusion
+    ] ;; standard true
+    [ ifelse scenario = "SSP1" ;; standard else
+      [ set
+        [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
+        [ 34768 7 23 33 37 80 17 80 ]
+        load-ssp1
+      ] ;; SSP1 true (standard false)
+      [ ifelse scenario = "SSP2" ;; SSP1 else
+        [ set
+          [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
+          [ 33334 13 48 20 19 80 25 50 ]
+          load-ssp2
+        ]  ;; SSP2 true
+        [ if scenario = "SSP3" ;; SSP2 else
+          [ set
+            [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
+            [ 32073 20 60 10 10 80 35 30 ]
+            load-ssp3
+          ] ;; SSP3 true
+        ] ;; closing SSP3
+      ] ;; closing SSP2
+    ] ;; closing SSP1
+  )
+end
+
+
+
+to make-households
+
+  ;;.. creation of households
+  let i household-number
+  create-households i [
+
+  ;;..specification of representation shape
+    set shape "person"
+    set color white
+    set size 1
+    set income-status 0
+
+  ]
+  ask turtles [setxy 70 387] ;APS look into this
+
+  ;;.. create socio-economic characteristics of households
+  ;;.. APS: create households with deprived-status
+  let d percent-deprived-households
+  let DP-number (d / 100) * i
+  ask n-of DP-number households with [income-status = 0]
+  [ set income-status 1]
+
+  ;;.. create households with low income-status
+  let a percent-low-income-households
+  let LI-number (a / 100) * i
+  ask n-of LI-number households [set income-status 2]
+
+  ;;.. create middle-income households
+  let b percent-mid-income-households
+  let MI-number (b  / 100) * i
+  ask n-of MI-number households with [income-status = 0] ;;[income-status != 1]
+  [set income-status 3]
+
+  ;;.. create high-income households
+  let c percent-high-income-households
+  let HI-number (c / 100) * i
+  ask n-of HI-number households with [income-status = 0] ;;[(income-status) !=1 and income-status != 2]
+  [set income-status 4]
+
+
+end
+;;.......................................................................
+
+
+to make-developers
+  let i estate-developer-number
+  create-developers i [
+    set shape "person"
+    setxy 76 391
+    set color blue
+    set size 1]
+
+    ;; create mid-end-developers
+      let j percent-mid-end-developers
+  let w (j / 100) * i
+  ask n-of w developers [
+    set class 2]
+
+  ;;.. create high-end-developers
+  let a percent-high-end-developers
+  let b (a  / 100) * i
+  ask n-of b developers with [class = 0]
+    [set class 3]
+
+end
+
+to do-calculations
+  ;; ...............................................................................
+  ;; calculations
+  make-households
+  make-developers
+  set-scenarios
+  load-suitability
+  load-informality
+  load-informal-avail
+  activate-development-control
+  load-nom-neighbourhood
+  load-UDP
+  load-ULI
+  load-UHI
+  load-UMI
+  load-UMED
+  load-UHED
+  set-weights;; APS: added weight-setting function
+  ;;load-developers-utility APS: comented on the original
+  ;;load-income APS: comented on the original
+  ;;load-suburb-area APS: comented on the original
+end
+;;..........................................................
+;;..........................................................
+
+;; INITIALIZE THE MODEL
+to set-up
+  ca
+  ;; ...............................................................................
+  ;; loading GIS layers
+  ;; APS: created a switch that chooses between calibration and prediction
+  ;;gis:load-coordinate-system ("data\\in\\.prj")
+  (ifelse calibrate?
+    ;; calibration function calls
+    [load-urban-early
+      load-density-early
+      load-bu-early-dist
+      load-attractive-early  ]
+    ;; prediction function calls
+    [ load-urban-late
+      load-density-late
+      load-bu-late-dist
+      load-attractive-late])
+  load-roads
+  load-healthfacilities
+  load-suburban
+  load-shoppingmalls
+  load-markets
+  load-airport
+  load-cbd
+  load-districts
+  load-neighbourhood
+  load-landvalue ;; APS: renamed for consistency with the variable name
+  load-structureplan;; APS: renamed for consistency with the variable name
+  ;;load-income APS: comented on the original
+  load-schools
+  ;; load-tenure ;; APS 16.10.2025: does this have any influence?
+  load-slope
+  load-water ;; APS: implemented this
+  load-exposed ;; APS: load exposure layer
+  make-households
+  make-developers
+  set-scenarios
+  load-suitability
+  load-informality
+  load-informal-avail
+  activate-development-control
+  set-weights;; APS: added weight-setting function
+  load-nom-neighbourhood
+  load-UDP
+  load-ULI
+  load-UHI
+  load-UMI
+  load-UMED
+  load-UHED
+
+  ;;load-developers-utility APS: comented on the original
+  ;;load-income APS: comented on the original
+  ;;load-suburb-area APS: comented on the original
+  ;;do-calculations
+  reset-ticks
+end
+;;...................................................
+;;...................................................
+
+
+;;  RUN THE MODEL
+to go
+  ifelse ticks = simulation-period
+  [stop]
+  [
+    count-patches
+    make-high-income-household-development
+    make-mid-income-household-development
+    make-low-income-household-development
+    make-deprived-household-development
+    if RED-on? [
+      make-high-end-RED
+      make-mid-end-RED]
+    if neighbour-on? [
+      update-neighbourhood]
+  ]
+  export-income-status-as-asc-tick
+  tick
+end
+
+
+;;.................................................................................
+
+;; LOAD DATASETS
+; APS: re-ordered the functions alphabetically
+
+;;load distance to airport
+to load-airport
+  set airport-dataset gis:load-dataset "data/in/airport.asc" ;; APS: renamed to include folder
+  gis:apply-raster airport-dataset airport
+  ;;gis:paint airport-dataset 0
+end
+
+;; APS: created this function, used in the calibration run.
+;;load distance to attractive neighbourhood for the earlier year of the simulation
+to load-attractive-early
+  set attractive-early-dataset gis:load-dataset "data/in/attractive_early.asc" ;; APS: renamed to include folder
+  gis:apply-raster attractive-early-dataset attractive
+end
+
+;;load distance to attractive neighbourhood for the later year of the simulation
+to load-attractive-late
+  set attractive-late-dataset gis:load-dataset "data/in/attractive_late.asc" ;; APS: renamed to include folder
+  gis:apply-raster attractive-late-dataset attractive
+end
+
+;; APS: created this function, used in the calibration run.
+;; load distance to built-up areas for the earlier year of the simulation
+to load-bu-early-dist
+  set bu-early-dist-dataset gis:load-dataset "data/in/bu_early_dist.asc" ;; APS: renamed to include folder
+  gis:apply-raster bu-early-dist-dataset bu
+  ;;ask patches [set bu (1 - bu)]
+end
+
+;; load distance to built-up areas for the later year of the simulation
+to load-bu-late-dist
+  set bu-late-dist-dataset gis:load-dataset "data/in/bu_late_dist.asc" ;; APS: renamed to include folder
+  gis:apply-raster bu-late-dist-dataset bu
+  ;;ask patches [set bu (1 - bu)]
+end
+
+;;load distance to CBD
+to load-cbd
+  set cbd-dataset gis:load-dataset "data/in/cbd.asc" ;; APS: renamed to include folder
+  gis:apply-raster cbd-dataset cbd
+end
+
+;; load population densityfor the latter year in the simulation
+to load-density-early; APS: renamed for consistency
+  set density-early-dataset gis:load-dataset "data/in/density_early.asc" ;; APS: renamed to include folder, density from -late
+  gis:apply-raster density-early-dataset density
+  ;; ask patches [set density-flip (1 - density)] ;; set patch values for density-flip
+end
+
+;; load population densityfor the latter year in the simulation
+to load-density-late; APS: renamed for consistency
+  set density-late-dataset gis:load-dataset "data/in/density_late.asc" ;; APS: renamed to include folder, density from -late
+  gis:apply-raster density-late-dataset density
+  ;;gis:paint density-late-dataset 0
+  ;; ask patches [set density-flip (1 - density)] ;; set patch values for density-flip
+end
+
+;; load administrative districts
+to load-districts
+  set districts-dataset gis:load-dataset "data/in/districts.asc" ;; APS: renamed to include folder
+  gis:apply-raster districts-dataset districts
+  ;;gis:paint districts-dataset 0
+end
+
+;;load exclusion layer
+to load-exclusion
+  set exclusion-dataset gis:load-dataset "data/in/exclusion.asc" ;; APS: renamed to include folder
+  gis:apply-raster exclusion-dataset exclusion
+  ask patches [if exclusion = 1 [ set pcolor 99 ]]
+  ;;gis:paint exclusion-dataset 0
+end
+
+;;load distance to health facilities
+to load-healthfacilities
+  set healthfacilities-dataset gis:load-dataset "data/in/healthfacilities.asc" ;; APS: renamed to include folder
+  gis:apply-raster healthfacilities-dataset healthfacilities
+  ;;gis:paint healthfacilities-dataset 0
+end
+
+;; APS: created this function as as stub. Test generating the income with their location at a later stage
+to load-income
+  set income-dataset gis:load-dataset "data/in/income.asc" ;; APS: renamed to include folder
+  gis:apply-raster income-dataset income-patch
+end
+
+;; load land values
+to load-landvalue
+  ;;set landvalus-dataset gis:load-dataset "data/in/landvalue_idw.asc"
+  set landvalue-dataset gis:load-dataset "data/in/landvalue.asc" ;; APS: renamed to include folder
+  gis:apply-raster landvalue-dataset landvalue
+  ;;gis:paint landvalues-dataset 0
+end
+
+;;load distance to markets
+to load-markets
+  set markets-dataset gis:load-dataset "data/in/markets.asc" ;; APS: renamed to include folder
+  gis:apply-raster markets-dataset markets
+  ;;gis:paint markets-dataset 0
+end
+
+;; load road lines (in raster format) ;; APS: disentangled from load-roads for clarity
+to load-road-presence
+  set road-presence-dataset gis:load-dataset "data/in/road-presence.asc" ;; APS: renamed to include folder
+  gis:apply-raster road-presence-dataset road-presence
+end
+
+;;load distance to roads
+to load-roads
+  set roads-dataset gis:load-dataset "data/in/roads.asc" ;; APS: renamed to include folder
+  gis:apply-raster roads-dataset road
+  load-road-presence
+  ;;gis:paint roads-dataset 0
+end
+
+;;load distance to schools
+to load-schools
+  set schools-dataset gis:load-dataset "data/in/schools.asc" ;; APS: renamed to include folder
+  gis:apply-raster schools-dataset schools
+  ;;gis:paint schools-dataset 0
+end
+
+
+;;load distance to shopping malls
+to load-shoppingmalls
+  set shoppingmalls-dataset gis:load-dataset "data/in/shoppingmalls.asc" ;; APS: renamed to include folder
+  gis:apply-raster shoppingmalls-dataset shoppingmall
+  ;;gis:paint shoppingmalls-dataset 0
+end
+
+;;load slope
+to load-slope
+  set slope-dataset gis:load-dataset "data/in/slope.asc" ;; APS: renamed to include folder, slope in percent
+  gis:apply-raster slope-dataset slope ;;slope-pct
+  ;;ask patches [set slope (slope-pct * 100) ]
+  ;;gis:paint slope-dataset 0
+end
+
+
+;;load local plan
+to load-structureplan
+  set structureplan-dataset gis:load-dataset "data/in/structureplan.asc" ;; APS: renamed to include folder
+  gis:apply-raster structureplan-dataset structureplan
+  ;;gis:paint structureplan-dataset 0
+end
+
+;;load distance to suburban centers
+to load-suburban ;; APS: renamed for consistency with variable name
+  set suburban-dataset gis:load-dataset "data/in/suburban.asc" ;; APS: renamed to include folder
+  gis:apply-raster suburban-dataset suburb
+  ;;gis:paint suburban-dataset 0
+end
+
+;; land title registration status
+to load-tenure
+  set tenure-dataset gis:load-dataset "data/in/tenure.asc" ;; APS: renamed to include folder
+  gis:apply-raster tenure-dataset tenure
+  ;;gis:paint title-dataset 0
+end
+
+
+;;load built-up status of parcels for the earlier year of the simulation
+;; APS: created  a new function to load the -early dataset as well
+to load-urban-early
+  set urban-early-dataset gis:load-dataset "data/in/urban_early.asc" ;; APS: renamed to include folder, urban features  from -early
+  gis:apply-raster urban-early-dataset urban
+   gis:set-world-envelope gis:envelope-of urban-early-dataset
+  ask patches [
+    ifelse urban = 1
+    [ set pcolor 49
+      set urban-type 5]
+    [set pcolor 9
+      set urban-type 0]]
+end
+
+;;load built-up status of parcels
+to load-urban-late
+  set urban-late-dataset gis:load-dataset "data/in/urban_late.asc" ;; APS: renamed to include folder, urban features  from -late
+  gis:apply-raster urban-late-dataset urban
+   gis:set-world-envelope gis:envelope-of urban-late-dataset
+    ask patches [
+    ifelse urban = 1
+    [ set pcolor 49
+      set urban-type 5]
+    [set pcolor 9
+      set urban-type 0]]
+end
+
+to load-water ;; APS: created the load-water function
+  set water-dataset gis:load-dataset "data/in/water.asc"
+  gis:apply-raster water-dataset water
+end
+
+;; Load exposure layer
+to load-exposed
+  set exposed-dataset gis:load-dataset "data/in/exposed.asc"
+  gis:apply-raster exposed-dataset exposed
+end
+
+
+;;Count and set the number of neighbouring parcels that are built-up
+to load-neighbourhood
+  ask patches [set neighbourhood
+    count neighbors with [urban = 1]]
+end
+
+;; APS: created scenario with different exclusion layers
+to load-ssp1
+  set ssp-dataset gis:load-dataset "data/in/exclusion_ssp1.asc" ;; APS: renamed to include folder
+  gis:apply-raster ssp-dataset exclusion
+  ask patches [if exclusion = 1 [ set pcolor 99 ]]
+end
+
+to load-ssp2
+  set ssp-dataset gis:load-dataset "data/in/exclusion_ssp2.asc" ;; APS: renamed to include folder
+  gis:apply-raster ssp-dataset exclusion
+  ask patches [if exclusion = 1 [ set pcolor 99 ]]
+end
+
+to load-ssp3
+  set ssp-dataset gis:load-dataset "data/in/exclusion_ssp3.asc" ;; APS: renamed to include folder
+  gis:apply-raster ssp-dataset exclusion
+  ask patches [if exclusion = 1 [ set pcolor 99 ]]
+end
+
+
+;;.......................................................................
+;;.......................................................................
+
+
+;; COMPUTE THE SUITABILITY OF PARCELS
+to load-suitability
+  set slope_max max [slope] of patches
+  set develop_prob [] ;; APS: initializes a list called develop_prob
+  let a 0
+  while [a <= critical_slope][ ;; APS:  The code loops through values of a from 0 to critical_slope
+    let b (critical_slope - a) / critical_slope
+    ;; APS: Calculates a normalized value b that ranges from 1 (when a = 0) to 0 (when a = critical_slope).
+    ;; This creates a probability scaling factor for slopes below the critical_slope.
+    set develop_prob lput (b ^ (slope_coefficient / 200)) develop_prob
+    ;; APS: Appends (lput) a development probability for each slope based on the value of b and the slope_coefficient.
+    ;; The term (b ^ (slope_coefficient / 200)) reduces the development probability as slope increases.
+    set a a + 1]
+
+  ;; Add zeros for slopes > critical_slope
+  let extra_zeros slope_max - critical_slope
+  repeat extra_zeros [
+    set develop_prob lput 0 develop_prob
+  ]
+
+  ask patches [
+    let y random-float 1 ;; APS: Generates a random number y between 0 and 1 for each patch.
+    ifelse y < item slope develop_prob
+    ;; APS: Compares the random number y to the development probability for the patch's slope (obtained from the develop_prob list).
+    ;; If y is less than the probability:
+    [set suitability 1] ;; APS: The patch is deemed suitable for development (suitability = 1).
+    [set suitability 0] ;; APS: Otherwise, the patch is unsuitable for development
+    if exclusion = 1 [set suitability 0]
+    if urban = 1 [set suitability 0]
+  ]
+
+  ;; APS: 12.12.2024 testing new suitability function with road influence
+  ;; Assign suitability to patches with road influence
+  ;; APS: 13.12.2024 rolling back the suitability function to the original method. We will restrict the patches available via the exclusion layer (i.e., urban areas generated in SLEUTH).
+  ;;ask patches [
+    ;; Compute the complement of the road variable
+    ;;let road_complement (1 - road)
+
+    ;; Power-law transformation of the road complement
+    ;;let power_exponent 2
+    ;;let road_modifier road_complement ^ power_exponent
+
+    ;; Normalize road_modifier to range [0, 1] (optional for consistency)
+    ;;let normalized_road_modifier road_modifier / (1 + road_modifier)
+
+    ;; Weighted combination of slope and road influence
+    ;;let weighted_probability ((item slope develop_prob) + 2 * normalized_road_modifier) / 3
+
+    ;; Calculate combined suitability probability
+    ;;let random_value random-float 1
+    ;;ifelse random_value < weighted_probability [
+      ;;set suitability 1 ;; Suitable for development
+    ;;] [
+      ;;set suitability 0 ;; Not suitable for development
+    ;;]
+
+    ;; Exclude specific patches
+    ;;if exclusion = 1 [ set suitability 0 ]
+    ;;if urban = 1 [ set suitability 0 ]
+  ;;]
+end
+;;.....................................................................
+
+;; Display suitability
+to display_suitability
+  ask patches [ifelse suitability = 1
+    [set pcolor white][set pcolor black]
+  ]
+end
+;;.....................................................................
+
+;; normalize slope
+to load-nom-slope
+  ask patches [
+    let i max [slope] of patches
+    let j min [slope] of patches
+    set nom-slope ((slope - j) / (i - j))
+  ]
+end
+
+;; normalize neighbourhood
+to load-nom-neighbourhood
+ ask patches [set nom-neighbourhood ((neighbourhood)/(8))]
+end
+;;......................................................................................
+;;......................................................................................
+
+
+;; COMPUTE LEGAL STATUS OF PARCELS
+;;Load areas liable to informal development
+to load-informality
+  ask patches with [(suitability = 1) and (structureplan = 1)] ;; APS: structureplan is now a binary variable, where 0 = settlement allowed, and 1 = settlement not allowed
+    [set informality 1]
+end
+
+
+;;Display areas liable to informal development
+to display-areas-liable-to-informality
+  let i count patches with [(informality = 1) and (suitability = 1) and (urban = 0)]
+  let j (development_control / 100) * i
+  ask n-of j patches with [(informality = 1) and (suitability = 1) and (urban = 0)] [set pcolor red]
+end
+
+
+;;load informal lands that are available for development
+to load-informal-avail
+  let i count patches with [(informality = 1) and (suitability = 1) and (urban = 0)]
+  let j (development_control / 100) * i
+
+  ask n-of j patches with [(informality = 1) and (suitability = 1) and (urban = 0)]
+    [set informal_avail 1]
+   ;; exclude the specified proportion of informal lands from development
+end
+;;..............................................................................
+;;..............................................................................
+
+
+;;ACTIVATE DEVELOPMENT CONTROL
+;; APS: I am unsure of the usefulness of this function, since it is the opposite of the load-informal-avail function
+to activate-development-control
+  let i count patches with[(informality = 1) and (suitability = 1) and (urban = 0)]
+  let j (development_control / 100) * i
+  ask n-of j patches with [(informality = 1) and (suitability = 1) and (urban = 0)]
+  [set suitability 0]
+end
+;;.......................................................................................
+;;.......................................................................................
+
+
+;; COMPUTE PARCEL UTILITY BY INCOME STATUS
+
+;; APS: load deprived households utility for each parcel
+;; APS: 11.03.2025 refactored the utility functions to take in positive values (instead of distances to them)
+to load-UDP
+  ask patches [
+    set UDP ((suburb * dpu-suburb)  + (bu * dpu-bu) + ;+ (nom-neighbourhood * dpu-neigbhour)
+      (cbd * dpu-cbd) + (shoppingmall * dpu-mall) + (markets * dpu-markets) +
+      (road * dpu-road) + (density * dpu-density) + (schools * dpu-schools) +
+      (attractive * dpu-attractive) + (healthfacilities * dpu-health ) + ((random-float 0.1) * dpu-random) +
+      (water * dpu-water ) + (exposed * dpu-exposed) ) ;; APS: added water and exposed parameters to the utility functions
+  ]
+end
+
+;; load low income households utility for each parcel
+to load-ULI
+  ask patches [
+    set ULI ((suburb * liu-suburb) + (bu * liu-bu) + ;+ (nom-neighbourhood * liu-neigbhour)
+      (cbd * liu-cbd) + (shoppingmall * liu-mall) + (markets * liu-markets) +
+      (road * liu-road) + (density * liu-density) + (schools * liu-schools) +
+      (attractive * liu-attractive) + (healthfacilities * liu-health ) + ((random-float 0.1) * liu-random) +
+      (water * liu-water ) + (exposed * liu-exposed) ) ;; APS: added water and exposed parameters to the utility functions
+  ]
+end
+
+;;............................................................................................................
+
+
+;;load mid income household utility for each patch / parcel
+to load-UMI
+  ask patches [
+    set UMI ((suburb * miu-suburb) +  (bu * miu-bu) + ;+ (nom-neighbourhood * miu-neigbhour)
+      (cbd * miu-cbd) + (shoppingmall * miu-mall) + (markets * miu-markets) +
+      (road * miu-road) + (density * miu-density) + (schools * miu-schools) +
+      (attractive * miu-attractive) + (healthfacilities * miu-health) + ((random-float 0.1) * miu-random) +
+      (water * miu-water) + (exposed * miu-exposed)) ;; APS: added water and exposed parameters to the utility functions
+
+    ;; APS: 13.12.2024 implementing a normalisation function to the utility. This is not seem necessary, as only the top patches are picked for each agent type.
+    ;;let max_UMI max [UMI] of patches
+    ;;let min_UMI min [UMI] of patches
+    ;;let normalised_UMI ( UMI - min_UMI ) / ( max_UMI - min_UMI )
+    ;;set UMI normalised_UMI
+  ]
+end
+
+;;load high income household utility for each parcel
+to load-UHI
+  ask patches [
+    ;; APS: added a water parameter to the utility functions
+    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + 
+      (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + 
+      (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + 
+      (water * hiu-water) + (exposed * hiu-exposed))
+    ;; set UHI ((suburb * hiu-suburb) + (nom-neighbourhood * hiu-neigbhour) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water) + (exposed * hiu-exposed))
+    ;; include a neighbourhood to calculate UHI
+  ]
+end
+;;.........................................................................
+
+;; compute utility for middle end real estate developers
+;; APS: 11.03.2025 refactored the utility functions to take in positive values (instead of distances to them)
+to load-UMED
+  ask patches [
+    ;set UMED ((road * 8 + (exposed * mi-red-exposed)) + (suburb * 7) + (attractive * 7) + ((1 - nom-slope) * 7) + (schools * 5))
+    ;; APS: extending the real estate developer agents utility functions to all utility layers
+    set UMED ((suburb * mi-red-suburb) + (nom-neighbourhood * mi-red-neigbhour) + (bu * mi-red-bu) +
+      (cbd * mi-red-cbd) + (shoppingmall * mi-red-mall) + (markets * mi-red-markets) +
+      (road * mi-red-road) + (density * mi-red-density) + (schools * mi-red-schools) +
+      (attractive * mi-red-attractive) + (healthfacilities * mi-red-health) + ((random-float 0.1) * mi-red-random) +
+      (water * mi-red-water) + ((1 - nom-slope) * mi-red-nom-slope) + (exposed * mi-red-exposed))
+  ]
+end
+
+;; compute utility for high end real estate developers
+to load-UHED
+  ask patches [
+    ;; set UHED ((road * 8 + (exposed * hi-red-exposed)) + (suburb * 6) + (attractive * 10) + (schools * 5))
+    set UHED ((suburb * hi-red-suburb) + (nom-neighbourhood * hi-red-neigbhour) + (bu * hi-red-bu) +
+      (cbd * hi-red-cbd) + (shoppingmall * hi-red-mall) + (markets * hi-red-markets) +
+      (road * hi-red-road) + (density * hi-red-density) + (schools * hi-red-schools) +
+      (attractive * hi-red-attractive) + (healthfacilities * hi-red-health) + ((random-float 0.1) * hi-red-random) +
+      (water * hi-red-water) + ((1 - nom-slope) * hi-red-nom-slope) + (exposed * hi-red-exposed))
+  ]
+end
+;;........................................................................................................................................
+
+;;.....................................................................
+
+to display-UDP
+  ask patches [
+    let max_UDP max [UDP] of patches
+    let top_UDP (0.7 * max_UDP)
+    ;; let min_UDP min [UDP] of patches
+    ifelse UDP > top_UDP
+       [set pcolor 49]
+       [set pcolor 39]
+       ;;[set pcolor 29]
+     ]
+end
+;;.....................................................................
+;;........................................................................................................................................
+
+to count-patches
+  set total-avail-patches patches with [( urban = 0 ) and ( new-urban = 0 ) and ( suitability = 1 )]
+
+end
+
+;; PARCEL SELECTION/DEVELOPMENT BY HOUSEHOLDS
+;; APS 28.05.2026: defined a dynamic allocation function to avoid rounding errors when allocating agents
+;; the model previously crashed before reaching the final tick if agent population < to allocate population
+;; this applies to all agent classes (deprived, low, mid, high, mid-RED, and high-RED)
+
+;; Development by deprived households
+to make-deprived-household-development
+  let remaining-ticks (simulation-period - ticks)  ;; Ticks left in the simulation
+  let remaining-deprived (count households with [(income-status = 1) and (DPH-movement = 0)])
+  let x 0
+
+  ;; Calculate x, handling division by zero
+  ifelse (remaining-ticks > 0) [
+    set x min (list (ceiling (remaining-deprived / remaining-ticks)) remaining-deprived)
+  ] [
+    set x remaining-deprived  ;; Allocate all remaining agents on the last tick
+  ]
+
+  let d patches with [(urban = 0) and (new-urban = 0) and (suitability = 1) and (landvalue <= 2)]
+  if (count d) > 0 [
+    ask max-n-of (min (list (x * dpu-maxof) (count d))) d [UDP] [set first-n-UDP 1]
+    let f patches with [((first-n-UDP = 1) and (DP-movement = 0) and (LI-movement = 0) and (HI-movement = 0) and (MI-movement = 0) and (pMED-movement = 0) and (pHED-movement = 0))]
+    set available-first-n-UDP count f
+
+    ;; Count available households
+    let available-households count households with [income-status = 1 and DPH-movement = 0]
+
+    if (x > 0 and available-first-n-UDP >= 1 and available-households >= 1) [
+      ;; Limit agents-to-allocate by the minimum of x, available patches, and available households
+      let agents-to-allocate min (list x available-first-n-UDP available-households)
+
+      ;; Debug prints (optional)
+      ;;print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+
+      ask n-of agents-to-allocate households with [income-status = 1 and DPH-movement = 0] [
+        move-to one-of f
+        ask patch-here [
+          (set pcolor 17) (set DP-movement 1) (set new-urban 1) (set urban-type 1)
+          if informality = 1 [ set informal-status 1 ]
+        ]
+        set DPH-movement 1
+        set color 17 ;;red+2
+      ]
+    ]
+  ]
+end
+
+;; Development by low income households
+to make-low-income-household-development
+  let remaining-ticks (simulation-period - ticks)  ;; Ticks left in the simulation
+  let remaining-low-income (count households with [(income-status = 2) and (LIH-movement = 0)])
+  let x 0
+
+  ;; Calculate x, handling division by zero
+  ifelse (remaining-ticks > 0) [
+    set x min (list (ceiling (remaining-low-income / remaining-ticks)) remaining-low-income)
+  ] [
+    set x remaining-low-income  ;; Allocate all remaining agents on the last tick
+  ]
+
+  let d patches with [(urban = 0) and (new-urban = 0) and (suitability = 1) and (landvalue < 2)]
+  if (count d) > 0 [
+    ask max-n-of (min (list (x * liu-maxof) (count d))) d [ULI] [set first-n-ULI 1]
+
+    let f patches with [
+      ((first-n-ULI = 1) and (DP-movement = 0) and (LI-movement = 0) and (HI-movement = 0) and
+       (MI-movement = 0) and (pMED-movement = 0) and (pHED-movement = 0))
+    ]
+    set available-first-n-ULI count f
+
+    ;; Count available households
+    let available-households count households with [income-status = 2 and LIH-movement = 0]
+
+    if (x > 0 and available-first-n-ULI >= 1 and available-households >= 1) [
+      ;; Limit agents-to-allocate by the minimum of x, available patches, and available households
+      let agents-to-allocate min (list x available-first-n-ULI available-households)
+
+      ;; Debug prints (optional)
+      ;;print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+
+      ask n-of agents-to-allocate households with [income-status = 2 and LIH-movement = 0] [
+        move-to one-of f
+        ask patch-here [
+          (set pcolor 67) (set LI-movement 1) (set new-urban 1) (set urban-type 2)
+          if informality = 1 [ set informal-status 1 ]
+        ]
+        set LIH-movement 1
+        set color 67 ;; lime+2
+      ]
+    ]
+  ]
+end
+
+;;..................................................................
+
+
+;; Development by middle income households
+to make-mid-income-household-development
+  let remaining-ticks (simulation-period - ticks)  ;; Ticks left in the simulation
+  let remaining-mid-income (count households with [(income-status = 3) and (MIH-movement = 0)])
+  let x 0
+
+  ;; Calculate x, handling division by zero
+  ifelse (remaining-ticks > 0) [
+    set x min (list (ceiling (remaining-mid-income / remaining-ticks)) remaining-mid-income)
+  ] [
+    set x remaining-mid-income  ;; Allocate all remaining agents on the last tick
+  ]
+
+  let d patches with [(urban = 0) and (new-urban = 0) and (suitability = 1) and (landvalue <= 3)]
+  if (count d) > 0 [
+    ask max-n-of (min (list (x * miu-maxof) (count d))) d [UMI] [set first-n-UMI 1]
+
+    let f patches with [(first-n-UMI = 1) and (MI-movement = 0) and
+        (DP-movement = 0) and (HI-movement = 0) and (LI-movement = 0) and (pMED-movement = 0) and (pHED-movement = 0)]
+    set available-first-n-UMI count f
+
+    ;; Count available households
+    let available-households count households with [income-status = 3 and MIH-movement = 0]
+
+    if (x > 0 and available-first-n-UMI >= 1 and available-households >= 1) [
+      ;; Limit agents-to-allocate by the minimum of x, available patches, and available households
+      let agents-to-allocate min (list x available-first-n-UMI available-households)
+      ;; Debug prints (optional)
+      print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+      ask n-of agents-to-allocate households with [income-status = 3 and MIH-movement = 0] [
+        move-to one-of f
+        ask patch-here [
+          (set pcolor 86) (set MI-movement 1) (set new-urban 1) (set urban-type 3)
+          if informality = 1 [ set informal-status 1 ]
+        ]
+        set MIH-movement 1
+        set color 86 ;; cyan+1
+      ]
+    ]
+  ]
+end
+;;........................................................................................................................................
+
+
+;;Make high income development
+to make-high-income-household-development
+  let remaining-ticks (simulation-period - ticks)  ;; Ticks left in the simulation
+  let remaining-high-income (count households with [(income-status = 4) and (HIH-movement = 0)])
+  let x 0
+
+  ;; Calculate x, handling division by zero
+  ifelse (remaining-ticks > 0) [
+    set x min (list (ceiling (remaining-high-income / remaining-ticks)) remaining-high-income)
+  ] [
+    set x remaining-high-income  ;; Allocate all remaining agents on the last tick
+  ]
+
+  let d patches with [(urban = 0) and (new-urban = 0) and (suitability = 1)]
+  if (count d) > 0 [
+    ask max-n-of (min (list (x * hiu-maxof) (count d))) d [UHI] [set first-n-UHI 1]
+
+    let f patches with [(first-n-UHI = 1) and
+      (DP-movement = 0) and (HI-movement = 0) and (MI-movement = 0) and (LI-movement = 0) and (pMED-movement = 0) and (pHED-movement = 0)]
+    set available-first-n-UHI count f
+
+    ;; Count available households
+    let available-households count households with [income-status = 4 and HIH-movement = 0]
+
+    if (x > 0 and available-first-n-UHI >= 1 and available-households >= 1) [
+      ;; Limit agents-to-allocate by the minimum of x, available patches, and available households
+      let agents-to-allocate min (list x available-first-n-UHI available-households)
+
+      ;; Debug prints (optional)
+      ;;print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+
+      ask n-of agents-to-allocate households with [income-status = 4 and HIH-movement = 0] [
+        move-to one-of f
+        ask patch-here [
+          (set pcolor 105) (set HI-movement 1) (set new-urban 1) (set urban-type 4)
+          if informality = 1 [ set informal-status 1 ]
+        ]
+        set HIH-movement 1
+        set color 105 ;; blue+2
+      ]
+    ]
+  ]
+end
+
+;; Developments by mid end real estate developers
+to make-mid-end-RED
+  let i estate-developer-number
+  let n percent-mid-end-developers
+  let total-mid-end-developers (i * (n / 100))  ;; Total mid-end RED developers to allocate
+  let remaining-ticks (simulation-period - ticks)  ;; Ticks left in the simulation
+  let remaining-mid-end (total-mid-end-developers - count developers with [class = 2 and MED-movement = 1])  ;; Mid-end RED developers left to allocate
+
+  ;; Calculate the number of agents to allocate this tick, but don't exceed remaining agents
+  let x min (list (ceiling (remaining-mid-end / remaining-ticks)) remaining-mid-end)
+
+  let y (median [UMI] of patches with [suitability = 1 and districts > 0])
+  let w (2 + random 6)
+
+  let d patches with [(urban = 0) and (new-urban = 0) and (suitability = 1)]
+  if (count d) > 0 [
+    ;; Limit the number of patches to the minimum of (x * mi-red-maxof) or available patches
+    ask max-n-of (min (list (x * mi-red-maxof) (count d))) d [UMED] [set first-n-UMED 1]
+
+    let available-patches count patches with [
+      (first-n-UMED = 1) and (pMED-movement = 0) and (pHED-movement = 0)
+      and (HI-movement = 0) and (MI-movement = 0) and (LI-movement = 0)
+    ]
+
+    if available-patches >= 1 [
+      ;; Allocate the minimum of x or the number of available patches
+      let agents-to-allocate min (list x available-patches)
+      ask n-of agents-to-allocate developers with [class = 2 and MED-movement = 0] [
+        move-to one-of patches with [
+          (first-n-UMED = 1) and (pMED-movement = 0) and (pHED-movement = 0)
+          and (HI-movement = 0) and (MI-movement = 0) and (LI-movement = 0)
+        ]
+
+        ask patch-here [
+          ask n-of w patches in-radius mi-red-rad [
+            if suitability = 1 and urban = 0 and new-urban = 0 [
+              (set pcolor orange) (set pMED-movement 1) (set new-urban 1) (set urban-type 3)
+              if informality = 1 [ set informal-status 1 ]
+            ]
+          ]
+          set pcolor orange
+          set pMED-movement 1
+          set new-urban 1
+          set urban-type 1
+          if informality = 1 [ set informal-status 1 ]
+        ]
+        (set MED-movement 1) (set color orange)
+      ]
+    ]
+  ]
+end
+
+;; Developments by high-end real estate developers
+to make-high-end-RED
+  let i estate-developer-number
+  let n percent-high-end-developers
+  let total-high-end-developers (i * (n / 100))  ;; Total high-end RED developers to allocate
+  let remaining-ticks (simulation-period - ticks)  ;; Ticks left in the simulation
+  let remaining-high-end (total-high-end-developers - count developers with [class = 3 and HED-movement = 1])  ;; High-end RED developers left to allocate
+
+  ;; Calculate the number of agents to allocate this tick, but don't exceed remaining agents
+  let x min (list (ceiling (remaining-high-end / remaining-ticks)) remaining-high-end)
+
+  let y (median [UHED] of patches with [suitability = 1 and districts > 0])
+  let q (2 + random 4)
+
+  let d patches with [(urban = 0) and (new-urban = 0) and (suitability = 1)]
+  if (count d) > 0 [
+    ;; Limit the number of patches to the minimum of (x * hi-red-maxof) or available patches
+    ask max-n-of (min (list (x * hi-red-maxof) (count d))) d [UHED] [set first-n-UHED 1]
+
+    let available-patches count patches with [
+      (first-n-UHED = 1) and (pHED-movement = 0) and (pMED-movement = 0)
+      and (HI-movement = 0) and (MI-movement = 0) and (LI-movement = 0)
+    ]
+
+    if available-patches >= 1 [
+      ;; Allocate the minimum of x or the number of available patches
+      let agents-to-allocate min (list x available-patches)
+      ask n-of agents-to-allocate developers with [class = 3 and HED-movement = 0] [
+        move-to one-of patches with [
+          (first-n-UHED = 1) and (pHED-movement = 0) and (pMED-movement = 0)
+          and (HI-movement = 0) and (MI-movement = 0) and (LI-movement = 0)
+        ]
+
+        ask patch-here [
+          ask n-of q patches in-radius hi-red-rad [
+            if suitability = 1 and urban = 0 and new-urban = 0 [
+              (set pcolor blue) (set pHED-movement 1) (set new-urban 1) (set urban-type 4)
+              if informality = 1 [ set informal-status 1 ]
+            ]
+          ]
+          set pcolor blue
+          set new-urban 1
+          set pHED-movement 1
+          set urban-type 1
+          if informality = 1 [ set informal-status 1 ]
+        ]
+        (set HED-movement 1) (set color blue)
+      ]
+    ]
+  ]
+end
+
+
+;;...................................................................................................................................................
+;;...................................................................................................................................................
+
+
+;;UPDATE-NEIGHBOURHOOD
+to update-neighbourhood
+
+  ;; Reset counts for this tick
+  set neighbourhood-changes-DP 0
+  set neighbourhood-changes-LI 0
+  set neighbourhood-changes-MI 0
+  set neighbourhood-changes-HI 0
+
+  ask patches with [(new-urban = 0) and (suitability = 1)] [
+    ;; Reset change flag for this tick
+    set neighbourhood-changed? 0
+
+    ;; Deprived (lowest priority)
+    if ((count neighbors with [DP-movement = 1] >= 3) and (first-n-UDP = 0 or landvalue > 1)) [
+      set first-n-UDP 1
+      set landvalue 1
+      set first-n-ULI 0
+      set first-n-UMI 0
+      set first-n-UHI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-DP neighbourhood-changes-DP + 1
+      ]
+    ]
+
+    ;; Low-income (third priority)
+    if ((count neighbors with [LI-movement = 1] >= 3) and (first-n-ULI = 0 or landvalue > 1)) [
+      set first-n-ULI 1
+      set landvalue 1
+      set first-n-UDP 0
+      set first-n-UMI 0
+      set first-n-UHI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-LI neighbourhood-changes-LI + 1
+      ]
+    ]
+
+    ;; Middle-income (second priority)
+    if ((count neighbors with [MI-movement = 1] >= 3) and (first-n-UMI = 0 or landvalue > 2)) [
+      set first-n-UMI 1
+      set landvalue 2
+      set first-n-UDP 0
+      set first-n-ULI 0
+      set first-n-UHI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-MI neighbourhood-changes-MI + 1
+      ]
+    ]
+
+    ;; High-income (highest priority)
+    if ((count neighbors with [HI-movement = 1] >= 3) and (first-n-UHI = 0 or landvalue > 3)) [
+      set first-n-UHI 1
+      set landvalue 3
+      set first-n-UDP 0
+      set first-n-ULI 0
+      set first-n-UMI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-HI neighbourhood-changes-HI + 1
+      ]
+    ]
+  ]
+
+  ;; Optional: Print counts for debugging
+  if track-neighbourhood-changes? [
+    print (word "Neighbourhood changes this tick - DP: " neighbourhood-changes-DP
+           ", LI: " neighbourhood-changes-LI
+           ", MI: " neighbourhood-changes-MI
+           ", HI: " neighbourhood-changes-HI)
+  ]
+end
+;;......................................................................................
+;;......................................................................................
+
+
+
+
+;; Display neighbourhood changes (DEBUG ONLY)
+to display-neighbourhood-changes
+  if track-neighbourhood-changes? [
+    ask patches with [neighbourhood-changed? = 1] [
+      set pcolor yellow  ;; Highlight changed patches
+    ]
+  ]
+end
+
+;; Reset neighbourhood tracking (DEBUG ONLY)
+to reset-neighbourhood-tracking
+  set neighbourhood-changes-DP 0
+  set neighbourhood-changes-LI 0
+  set neighbourhood-changes-MI 0
+  set neighbourhood-changes-HI 0
+  ask patches [ set neighbourhood-changed? 0 ]
+end
+;; EXPORT OUTPUT
+;; APS: 12.12.2024 new export function, seeks to correct errors
+to export-income-status-as-asc
+  ;; Save the raster dataset as an ASCII grid
+  let raster gis:patch-dataset urban-type
+  let file-name "data/out/expansion_income_2050.asc"
+  gis:store-dataset raster file-name
+end
+
+to export-informal-status-as-asc
+  ;; get the informal status of each patch
+  let raster gis:patch-dataset informal-status
+  let file-name "data/out/expansion_informal_2050.asc"
+  gis:store-dataset raster file-name
+end
+
+;; APS: created a function to export the grid every tick
+to export-income-status-as-asc-tick
+  ;; Save the raster dataset as an ASCII grid with the current tick number
+  let target-folder (word "data/out/r" run-num "/")
+  let raster gis:patch-dataset urban-type
+  let tick-string word "0" ticks
+  let tick-length length tick-string
+  let formatted-tick ifelse-value (tick-length < 3)
+    [word "0" tick-string]
+    [tick-string]
+  let file-name (word target-folder "expansion_income_t" formatted-tick ".asc")
+
+  ;;let file-name (word target-folder "expansion_income_t" ticks ".asc")
+  gis:store-dataset raster file-name
+end
+
+
+;;.................................................................................
+;; APS: created a function to trouble-shoot the inputs
+
+to experiment-urban ;;APS: simply tests the urban inputs
+  ca
+  load-urban-late
+  ask patches [ifelse urban = 1 [ set pcolor brown ] [set pcolor green]]
+  reset-ticks
+end
+
+
+;; APS: implements simple tests for every input individually. Allows to check if the data is displaying as it should and if simple math is working.
+to test-input
+  ca
+  (ifelse
+  select-model = "airport" [
+      load-airport
+      ask patches [set airport airport + 2]
+      gis:paint airport-dataset 0]
+    select-model = "attractive-late" [
+      ca
+      load-attractive-late
+      ask patches[set attractive (1 - attractive) * 2]
+      gis:paint attractive-late-dataset 0]
+    select-model = "bu-early-dist"[
+      ca
+      load-bu-early-dist
+      ask patches
+      [
+        set bu (1 - bu)
+        set bu (1 - bu) * 9
+      ]
+      gis:paint bu-early-dist-dataset 0]
+    select-model = "bu-late-dist"[
+      ca
+      load-bu-late-dist
+      ask patches [
+        ;;set bu (1 - bu)
+        set bu (1 - bu) * 9
+      ]
+      gis:paint bu-late-dist-dataset 0]
+    select-model = "cbd" [
+      ca
+      load-cbd
+      ask patches[set cbd (1 - cbd) * 5]
+      gis:paint cbd-dataset 0]
+    select-model = "density-early" [
+      ca
+      load-density-early
+      ask patches [set density density * 2]
+      gis:paint density-early-dataset 0]
+    select-model = "density-late" [
+      ca
+      load-density-late
+      ;;ask patches [set density density + 2]
+      gis:paint density-late-dataset 0]
+    select-model = "districts" [
+      ca
+      load-districts
+      gis:paint districts-dataset 0]
+    select-model = "exclusion" [
+      ca
+      load-exclusion
+      gis:paint exclusion-dataset 0]
+    select-model = "healthfacilities" [
+      ca
+      load-healthfacilities
+      ask patches[set healthfacilities 1 - healthfacilities]
+      gis:paint healthfacilities-dataset 0]
+    select-model = "income" [
+      ca
+      load-income
+      gis:paint income-dataset 0]
+    select-model = "landvalue" [
+      ca
+      load-landvalue
+      gis:paint landvalue-dataset 0]
+    select-model = "markets" [
+      ca
+      load-markets
+      gis:paint markets-dataset 0
+      ask patches [
+        set markets (1 - markets) * 6]]
+    select-model = "road-presence" [
+      ca
+      load-road-presence
+      gis:paint road-presence-dataset 0]
+    select-model = "roads" [
+      ca
+      load-roads
+      gis:paint roads-dataset 0
+      ask patches [
+        set road (1 - road) * 8]]
+    select-model = "schools" [
+      ca
+      load-schools
+      ask patches[set schools (1 - schools) * 2]
+      gis:paint schools-dataset 0]
+    select-model = "shoppingmalls" [
+      ca
+      load-shoppingmalls
+      ask patches[set shoppingmall 1 - shoppingmall]
+      gis:paint shoppingmalls-dataset 0]
+    select-model = "slope" [
+      ca
+      load-slope
+      gis:paint slope-dataset 0]
+    select-model = "suburban" [
+      ca
+      load-suburban
+      ask patches[set suburb (1 - suburb) * 10]
+      gis:paint suburban-dataset 0
+    ]
+    select-model = "tenure" [
+      ca
+      load-tenure
+      ask patches[
+        set tenure (tenure * 2)
+        (ifelse
+        tenure = 1 [ set pcolor red ]
+        tenure = 0 [ set pcolor blue ]
+        tenure < 0 [set pcolor white ])
+      ]
+      ;;gis:paint tenure-dataset 0
+    ]
+    select-model = "urban-early" [
+      ca
+      load-urban-early
+      gis:paint urban-early-dataset 0]
+
+    select-model = "urban-late" [
+      ca
+      load-urban-late
+      gis:paint urban-late-dataset 0]
+
+    select-model = "structureplan" [
+      ca
+      load-structureplan
+      gis:paint structureplan-dataset 0]
+    select-model = "water" [
+      ca
+      load-water
+      gis:paint water-dataset 0]
+  )
+end
+;; APS: end my edits
+;;.................................................................................]]></code>
+  <widgets>
+    <view x="329" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="0" height="684" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="false" width="776" tickCounterLabel="ticks" maxPycor="679" updateMode="0" maxPxcor="771" minPxcor="0"></view>
+    <button x="220" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="69" display="Set-up">set-up</button>
+    <button x="221" y="55" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="67" display="Go">go</button>
+    <slider x="8" step="1" y="526" max="100" width="197" display="slope_coefficient" height="50" min="1" direction="Horizontal" default="80.0" variable="slope_coefficient"></slider>
+    <slider x="6" step="1" y="581" max="100" width="200" display="critical_slope" height="50" min="1" direction="Horizontal" default="17.0" variable="critical_slope"></slider>
+    <button x="208" y="621" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="106" display="Display suitability">display_suitability</button>
+    <slider x="8" step="1" y="636" max="100" width="198" display="development_control" height="50" min="0" direction="Horizontal" default="80.0" variable="development_control"></slider>
+    <button x="207" y="576" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="107" display="Display informality">display-areas-liable-to-informality</button>
+    <slider x="7" step="100" y="11" max="200000" width="206" display="household-number" height="50" min="100" direction="Horizontal" default="34768.0" variable="household-number"></slider>
+    <slider x="9" step="1" y="139" max="100" width="193" display="percent-low-income-households" height="50" min="0" direction="Horizontal" default="23.0" variable="percent-low-income-households"></slider>
+    <slider x="8" step="1" y="249" max="100" width="192" display="percent-high-income-households" height="50" min="0" direction="Horizontal" default="37.0" variable="percent-high-income-households"></slider>
+    <slider x="9" step="1" y="194" max="100" width="191" display="percent-mid-income-households" height="50" min="0" direction="Horizontal" default="33.0" variable="percent-mid-income-households"></slider>
+    <plot x="1761" autoPlotX="true" yMax="30.0" autoPlotY="true" yAxis="Percent" y="10" xMin="0.0" height="196" legend="false" xMax="10.0" yMin="0.0" width="230" xAxis="Years" display="Percent Informal">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="default" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plot ((count patches with [(informality = 1) and (new-urban = 1)]) / (1 + count patches with [new-urban = 1])) * 100</update>
+      </pen>
+    </plot>
+    <monitor x="1926" precision="2" y="211" height="60" fontSize="11" width="106" display="Percent Informal">((count patches with [(informality = 1) and (new-urban = 1)]) / (1 + count patches with [new-urban = 1])) * 100</monitor>
+    <plot x="1165" autoPlotX="true" yMax="30.0" autoPlotY="true" yAxis="percent" y="452" xMin="0.0" height="217" legend="true" xMax="10.0" yMin="0.0" width="432" xAxis="Years" display="Percent Informal of Income Types">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Low-Income Informal" color="-2139308" legend="true">
+        <setup></setup>
+        <update>plot ((count patches with [LI-movement = 1 and informality = 1]) / (1 + count patches with [LI-movement = 1])) * 100</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Mid-Income Informal" color="-955883" legend="true">
+        <setup></setup>
+        <update>plot (((count patches with [MI-movement = 1 and informality = 1]) + (count patches with [pMED-movement = 1 and informality = 1])) / ((1 + count patches with [MI-movement = 1]) + (count patches with [pMED-movement = 1]))) * 100</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="High-Income Informal" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot (((count patches with [HI-movement = 1 and informality = 1]) + (count patches with [pHED-movement = 1 and informality = 1])) / ((1 + count patches with [HI-movement = 1]) + (count patches with [pHED-movement = 1]))) * 100</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Deprived Informal" color="-7500403" legend="true">
+        <setup></setup>
+        <update>plot ((count patches with [DP-movement = 1 and informality = 1]) / (1 + count patches with [DP-movement = 1])) * 100</update>
+      </pen>
+    </plot>
+    <monitor x="1757" precision="2" y="385" height="60" fontSize="11" width="136" display="Low-Income Informal">((count patches with [LI-movement = 1 and informality = 1]) / (1 + count patches with [LI-movement = 1])) * 100</monitor>
+    <monitor x="1602" precision="2" y="527" height="60" fontSize="11" width="132" display="High-Income Informal">(((count patches with [HI-movement = 1 and informality = 1]) + (count patches with [pHED-movement = 1 and informality = 1])) / ((1 + count patches with [HI-movement = 1]) + (count patches with [pHED-movement = 1]))) * 100</monitor>
+    <monitor x="1645" precision="2" y="462" height="60" fontSize="11" width="134" display="Mid-Income Informal">(((count patches with [MI-movement = 1 and informality = 1]) + (count patches with [pMED-movement = 1 and informality = 1])) / ((1 + count patches with [MI-movement = 1]) + (count patches with [pMED-movement = 1]))) * 100</monitor>
+    <plot x="1526" autoPlotX="true" yMax="50.0" autoPlotY="true" yAxis="percent" y="10" xMin="0.0" height="197" legend="false" xMax="10.0" yMin="20.0" width="230" xAxis="years" display="Percent Urbanized">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="default" color="-2674135" legend="true">
+        <setup></setup>
+        <update><![CDATA[plot (count patches with [new-urban = 1] + count patches with [urban = 1]) / (1 + count patches with [districts > 0]) * 100]]></update>
+      </pen>
+    </plot>
+    <monitor x="1668" precision="2" y="212" height="60" fontSize="11" width="115" display="Percent Urbanized"><![CDATA[(count patches with [new-urban = 1] + count patches with [urban = 1]) / (1 + count patches with [districts > 0]) * 100]]></monitor>
+    <plot x="1165" autoPlotX="true" yMax="50.0" autoPlotY="true" yAxis="Contribution (%)" y="675" xMin="0.0" height="217" legend="true" xMax="10.0" yMin="0.0" width="429" xAxis="Years" display="Contribution to Informal Development">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Low-income" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plot ((count patches with [LI-movement = 1 and informal_avail = 1]) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Mid-income" color="-955883" legend="true">
+        <setup></setup>
+        <update>plot (((count patches with [MI-movement = 1 and informal_avail = 1]) + (count patches with [pMED-movement = 1 and informal_avail = 1])) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="High-income" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot (((count patches with [HI-movement = 1 and informal_avail = 1]) + (count patches with [pHED-movement = 1 and informal_avail = 1])) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Deprived" color="-7500403" legend="true">
+        <setup></setup>
+        <update>plot ((count patches with [DP-movement = 1 and informal_avail = 1]) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</update>
+      </pen>
+    </plot>
+    <monitor x="1610" precision="2" y="593" height="60" fontSize="11" width="118" display="Low-income contr.">((count patches with [LI-movement = 1 and informal_avail = 1]) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</monitor>
+    <monitor x="1610" precision="2" y="658" height="60" fontSize="11" width="119" display="Mid-income contr.">(((count patches with [MI-movement = 1 and informal_avail = 1]) + (count patches with [pMED-movement = 1 and informal_avail = 1])) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</monitor>
+    <monitor x="1611" precision="2" y="724" height="60" fontSize="11" width="120" display="High-income contr.">(((count patches with [HI-movement = 1 and informal_avail = 1]) + (count patches with [pHED-movement = 1 and informal_avail = 1])) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</monitor>
+    <slider x="8" step="10" y="306" max="1000" width="198" display="estate-developer-number" height="50" min="10" direction="Horizontal" default="10.0" variable="estate-developer-number"></slider>
+    <slider x="7" step="1" y="361" max="100" width="200" display="percent-high-end-developers" height="50" min="0" direction="Horizontal" default="30.0" variable="percent-high-end-developers"></slider>
+    <slider x="7" step="1" y="416" max="100" width="200" display="percent-mid-end-developers" height="50" min="0" direction="Horizontal" default="67.0" variable="percent-mid-end-developers"></slider>
+    <slider x="7" step="1" y="471" max="50" width="199" display="simulation-period" height="50" min="1" direction="Horizontal" default="25.0" variable="simulation-period"></slider>
+    <button x="9" y="871" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="63" display="EU">experiment-urban</button>
+    <chooser x="107" y="902" height="60" variable="select-model" current="3" width="100" display="select-model">
+      <choice type="string" value="airport"></choice>
+      <choice type="string" value="attractive2015"></choice>
+      <choice type="string" value="bu2000-dist"></choice>
+      <choice type="string" value="bu2015-dist"></choice>
+      <choice type="string" value="density2000"></choice>
+      <choice type="string" value="density2015"></choice>
+      <choice type="string" value="districts"></choice>
+      <choice type="string" value="exclusion"></choice>
+      <choice type="string" value="income"></choice>
+      <choice type="string" value="landvalue"></choice>
+      <choice type="string" value="road-presence"></choice>
+      <choice type="string" value="slope"></choice>
+      <choice type="string" value="tenure"></choice>
+      <choice type="string" value="urban"></choice>
+      <choice type="string" value="structureplan"></choice>
+      <choice type="string" value="water"></choice>
+    </chooser>
+    <button x="9" y="918" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="94" display="Test inputs">test-input</button>
+    <switch x="210" y="123" height="40" on="false" variable="calibrate?" width="109" display="calibrate?"></switch>
+    <button x="9" y="758" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="125" display="export income ASCII">export-income-status-as-asc</button>
+    <plot x="1115" autoPlotX="true" yMax="100.0" autoPlotY="true" yAxis="households" y="10" xMin="0.0" height="240" legend="true" xMax="10.0" yMin="0.0" width="388" xAxis="years" display="Agents left per class">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Deprived HH left" color="-1604481" legend="true">
+        <setup></setup>
+        <update>plot (count households with [(income-status = 1) and (DPH-movement = 0)] )</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Low HH left" color="-8330359" legend="true">
+        <setup></setup>
+        <update>plot (count households with [income-status = 2 and LIH-movement = 0] )</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Mid HH left" color="-8990512" legend="true">
+        <setup></setup>
+        <update>plot (count households with [income-status = 3 and MIH-movement = 0] )</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="High HH left" color="-13345367" legend="true">
+        <setup></setup>
+        <update>plot (count households with [(income-status = 4) and (HIH-movement = 0)] )</update>
+      </pen>
+    </plot>
+    <button x="9" y="803" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="125" display="export informal ASCII">export-informal-status-as-asc </button>
+    <slider x="9" step="1" y="84" max="100" width="196" display="percent-deprived-households" height="50" min="0" direction="Horizontal" default="7.0" variable="percent-deprived-households"></slider>
+    <monitor x="1121" precision="17" y="255" height="60" fontSize="11" width="100" display="HH deprived">count households with [income-status = 4]</monitor>
+    <monitor x="1122" precision="17" y="320" height="60" fontSize="11" width="100" display="HH LI">count households with [income-status = 1]</monitor>
+    <monitor x="1122" precision="17" y="386" height="60" fontSize="11" width="100" display="HH MI">count households with [income-status = 2]</monitor>
+    <monitor x="1124" precision="17" y="452" height="60" fontSize="11" width="100" display="HH HI">count households with [income-status = 3]</monitor>
+    <monitor x="1790" precision="17" y="206" height="60" fontSize="11" width="100" display="suit-left">(count patches with [ suitability = 1 ] - count patches with [new-urban = 1])</monitor>
+    <monitor x="1336" precision="17" y="255" height="60" fontSize="11" width="100" display="LI hh left">(count households with [income-status = 2 and LIH-movement = 0] )</monitor>
+    <monitor x="1447" precision="2" y="255" height="60" fontSize="11" width="100" display="MI HH left">(count households with [(income-status = 3) and (MIH-movement = 0)] )</monitor>
+    <monitor x="1555" precision="2" y="212" height="60" fontSize="11" width="100" display="HI HH left">(count households with [(income-status = 4) and (HIH-movement = 0)] )</monitor>
+    <monitor x="1229" precision="2" y="255" height="60" fontSize="11" width="100" display="DP HH left">(count households with [(income-status = 1) and (DPH-movement = 0)] )</monitor>
+    <button x="208" y="666" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="106" display="Display UDP">display-UDP</button>
+    <switch x="210" y="168" height="40" on="true" variable="RED-on?" width="103" display="RED-on?"></switch>
+    <switch x="210" y="213" height="40" on="true" variable="neighbour-on?" width="107" display="neighbour-on?"></switch>
+    <monitor x="1410" precision="17" y="135" height="60" fontSize="11" width="100" display="Avail. patches">count total-avail-patches</monitor>
+    <monitor x="1231" precision="17" y="320" height="60" fontSize="11" width="100" display="first-n-UDP">count patches with [first-n-UDP = 1]</monitor>
+    <monitor x="1341" precision="17" y="320" height="60" fontSize="11" width="100" display="first-n-ULI">count patches with [first-n-ULI = 1]</monitor>
+    <monitor x="1448" precision="17" y="320" height="60" fontSize="11" width="100" display="first-n-UMI ">count patches with [first-n-UMI = 1]</monitor>
+    <monitor x="1556" precision="17" y="277" height="60" fontSize="11" width="100" display="first-n-UHI">count patches with [first-n-UHI = 1]</monitor>
+    <monitor x="1341" precision="17" y="385" height="60" fontSize="11" width="100" display="av-ULI">available-first-n-ULI</monitor>
+    <monitor x="1449" precision="17" y="385" height="60" fontSize="11" width="100" display="av-UMI">available-first-n-UMI</monitor>
+    <monitor x="1557" precision="17" y="342" height="60" fontSize="11" width="100" display="av-UHI">available-first-n-UHI</monitor>
+    <monitor x="1236" precision="17" y="385" height="60" fontSize="11" width="100" display="av-UDP">available-first-n-UDP</monitor>
+    <button x="219" actionKey="1" y="265" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="DC">do-calculations</button>
+    <input x="218" multiline="false" y="310" height="60" variable="run-num" type="string" width="100">052</input>
+    <chooser x="218" y="378" height="60" variable="scenario" current="1" width="100" display="scenario">
+      <choice type="string" value="standard"></choice>
+      <choice type="string" value="SSP1"></choice>
+      <choice type="string" value="SSP2"></choice>
+      <choice type="string" value="SSP3"></choice>
+    </chooser>
+    <switch x="217" y="444" height="40" on="true" variable="track-neighbourhood-changes?" width="100" display="track-neighbourhood-changes?"></switch>
+  </widgets>
+  <info><![CDATA[## WHAT IS IT?
+
+This model is named TI-City, which represents the "The Informal City". It is designed to predict 1) the locations, 2) legal status, and 3) economic status of future residential developments in an African city.
+
+TI-City combines agent-based and cellular automata modelling techniques to predict the geospatial behaviour of key urban development actors, including households, real estate developers and government.
+
+To demonstrate the utility of the model, it has been applied to Accra city-region, Ghana, which is one of the largest city-regions in Africa. See Agyemang et al (2022) for the underlying paper.
+
+The model can be useful to African urban studies scholars, environmental and climate scientist, as well as city planners and urban policy makers in Africa.
+
+
+## HOW IT WORKS
+
+TI-City has several key parameters. This includes:
+ 
+1. A development control parameter, which accounts for diverse regulatory contexts;
+
+2. Projected market demand for plots from households; 
+
+3. Estimated share of households in low-, middle-, and high-income classes; 
+
+4. Estimated demand for plots from real estate developers; 
+
+5. Estimated share of real estate developers targeting middle and high income buyers; 
+
+6. Land prices and affordability
+ 
+7. Utility of land parcels; and 
+
+8. The sensitivity of development to slope. 
+
+The model computes the suitability and utility of a given parcel for each income group by considering the geographical characteristics of the parcel. In calculating utility, the model accounts for the parcel’s geographical characteristics weighted differently depending on the income group of prospective inhabitants. The utility is dynamically updated during the simulation based on the income characteristics in the geographic neighbourhood of each cell.
+ 
+
+## HOW TO USE IT
+
+1. Select the simulation period. The unit is in years.
+
+2. Select the number of households to simulate using the household slider.
+
+3. Split households in low-, middle-, and high income classes using the sliders. The sum of the three proportions should be equal to 100 percent.
+
+4. Select the number of real estate developers to simulate.
+
+5. Split real estate developers into middle and high end suppliers. The sum of the two proportions should be equal to 100 percent.
+
+6. Select slope coefficient, which determines the extent to which development patterns are influenced by slope. This is modelled after SLEUTH.
+
+7. Select critical slope. This is the percent slope value beyond which development cannot occur. It may be derived from local urban development policies and regulations.
+
+8. Select development control value. This determines the extent to which development conforms to government regulation/local plan. The lower the value the weaker the development control.
+
+
+## THINGS TO NOTICE
+
+The spatial resolution of the model as applied to Accra is 200m. This is about 50 times larger than the average size of land parcels in the city. To apply the model to Accra using the available data, the parcel enlargement factor should be considered in determining the number of households and real estate developers to simulate.
+
+To adapt the model to any other city, consider the spatial resolution of the data and the extent to which is enlarges or reduces actual sizes of land parcels. Like the case of Accra, this could influence the number of households and real estate developers to simulate.
+
+#### Key for income status predictions:
+0 = undeveloped lands
+1 = Low income
+2 = Middle income
+3 = High income
+4 = seed year built-up
+
+#### Key for legal status predictions:
+0 = undeveloped lands
+1 = informal development
+2 = formal development
+6 = seed year built-up 
+ 
+
+
+## THINGS TO TRY
+
+Consider adjusting some of the parameters. For instance, what happens with strong development control or what happens if there is a higher share of middle or high income households?
+
+Experiment with data from a different city.
+
+
+## EXTENDING THE MODEL
+
+Generalize TI-City as a global urban expansion model. There are ongoing plans to do this.
+
+Integrate residential relocation and densification (vertical development) into the model.
+
+Weight the influence of slope by the socio-economic characteristics of neighbourhoods and prospective inhabitants.
+
+
+
+## RELATED MODELS
+
+SLEUTH
+
+
+## HOW TO CITE THE MODEL
+
+Agyemang, F.S., Silva, E., & Fox, S. (2022). Modelling and simulating ‘informal urbanization’: An integrated agent-based and cellular automata model of urban residential growth in Ghana. Environment and Planning B: Urban Analytics and City Science. https://doi.org/10.1177%2F23998083211068843
+
+
+
+## CREDITS AND REFERENCES
+
+Agyemang, F.S., Silva, E., & Fox, S. (2021). Modelling and simulating ‘informal urbanization’: An integrated ABM and CA model of urban residential growth in Ghana. Accepted for publication in Environment and Planning B.
+
+Clarke, K. C., Hoppen, S., & Gaydos, L. (1997). A self-modifying cellular automaton model of historical urbanization in the San Francisco Bay area. Environment and Planning B: Planning and Design, 24(2), 247-261.
+
+Zhou, Y. (2015). Urban growth model in Netlogo. Available at: http://www.gisagents.org/2015/09/urban-growth-model-in-netlogo.html
+
+## CONTACT
+
+
+Dr Felix S. K Agyemang 
+School of Geographical Sciences
+Unversity of Bristol
+
+Email: felix.agyemang@bristol.ac.uk
+
+Profile: https://research-information.bris.ac.uk/en/persons/felix-s-k-agyemang]]></info>
+  <turtleShapes>
+    <shape name="default" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="5"></point>
+        <point x="40" y="250"></point>
+        <point x="150" y="205"></point>
+        <point x="260" y="250"></point>
+      </polygon>
+    </shape>
+    <shape name="airplane" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="0"></point>
+        <point x="135" y="15"></point>
+        <point x="120" y="60"></point>
+        <point x="120" y="105"></point>
+        <point x="15" y="165"></point>
+        <point x="15" y="195"></point>
+        <point x="120" y="180"></point>
+        <point x="135" y="240"></point>
+        <point x="105" y="270"></point>
+        <point x="120" y="285"></point>
+        <point x="150" y="270"></point>
+        <point x="180" y="285"></point>
+        <point x="210" y="270"></point>
+        <point x="165" y="240"></point>
+        <point x="180" y="180"></point>
+        <point x="285" y="195"></point>
+        <point x="285" y="165"></point>
+        <point x="180" y="105"></point>
+        <point x="180" y="60"></point>
+        <point x="165" y="15"></point>
+      </polygon>
+    </shape>
+    <shape name="arrow" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="0"></point>
+        <point x="0" y="150"></point>
+        <point x="105" y="150"></point>
+        <point x="105" y="293"></point>
+        <point x="195" y="293"></point>
+        <point x="195" y="150"></point>
+        <point x="300" y="150"></point>
+      </polygon>
+    </shape>
+    <shape name="box" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="285"></point>
+        <point x="285" y="225"></point>
+        <point x="285" y="75"></point>
+        <point x="150" y="135"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="135"></point>
+        <point x="15" y="75"></point>
+        <point x="150" y="15"></point>
+        <point x="285" y="75"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="15" y="75"></point>
+        <point x="15" y="225"></point>
+        <point x="150" y="285"></point>
+        <point x="150" y="135"></point>
+      </polygon>
+      <line endX="150" startY="285" marked="false" color="255" endY="135" startX="150"></line>
+      <line endX="15" startY="135" marked="false" color="255" endY="75" startX="150"></line>
+      <line endX="285" startY="135" marked="false" color="255" endY="75" startX="150"></line>
+    </shape>
+    <shape name="bug" rotatable="true" editableColorIndex="0">
+      <circle x="96" y="182" marked="true" color="-1920102913" diameter="108" filled="true"></circle>
+      <circle x="110" y="127" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <circle x="110" y="75" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <line endX="80" startY="100" marked="true" color="-1920102913" endY="30" startX="150"></line>
+      <line endX="220" startY="100" marked="true" color="-1920102913" endY="30" startX="150"></line>
+    </shape>
+    <shape name="butterfly" rotatable="true" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="165"></point>
+        <point x="209" y="199"></point>
+        <point x="225" y="225"></point>
+        <point x="225" y="255"></point>
+        <point x="195" y="270"></point>
+        <point x="165" y="255"></point>
+        <point x="150" y="240"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="165"></point>
+        <point x="89" y="198"></point>
+        <point x="75" y="225"></point>
+        <point x="75" y="255"></point>
+        <point x="105" y="270"></point>
+        <point x="135" y="255"></point>
+        <point x="150" y="240"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="139" y="148"></point>
+        <point x="100" y="105"></point>
+        <point x="55" y="90"></point>
+        <point x="25" y="90"></point>
+        <point x="10" y="105"></point>
+        <point x="10" y="135"></point>
+        <point x="25" y="180"></point>
+        <point x="40" y="195"></point>
+        <point x="85" y="194"></point>
+        <point x="139" y="163"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="162" y="150"></point>
+        <point x="200" y="105"></point>
+        <point x="245" y="90"></point>
+        <point x="275" y="90"></point>
+        <point x="290" y="105"></point>
+        <point x="290" y="135"></point>
+        <point x="275" y="180"></point>
+        <point x="260" y="195"></point>
+        <point x="215" y="195"></point>
+        <point x="162" y="165"></point>
+      </polygon>
+      <polygon color="255" filled="true" marked="false">
+        <point x="150" y="255"></point>
+        <point x="135" y="225"></point>
+        <point x="120" y="150"></point>
+        <point x="135" y="120"></point>
+        <point x="150" y="105"></point>
+        <point x="165" y="120"></point>
+        <point x="180" y="150"></point>
+        <point x="165" y="225"></point>
+      </polygon>
+      <circle x="135" y="90" marked="false" color="255" diameter="30" filled="true"></circle>
+      <line endX="195" startY="105" marked="false" color="255" endY="60" startX="150"></line>
+      <line endX="105" startY="105" marked="false" color="255" endY="60" startX="150"></line>
+    </shape>
+    <shape name="car" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="300" y="180"></point>
+        <point x="279" y="164"></point>
+        <point x="261" y="144"></point>
+        <point x="240" y="135"></point>
+        <point x="226" y="132"></point>
+        <point x="213" y="106"></point>
+        <point x="203" y="84"></point>
+        <point x="185" y="63"></point>
+        <point x="159" y="50"></point>
+        <point x="135" y="50"></point>
+        <point x="75" y="60"></point>
+        <point x="0" y="150"></point>
+        <point x="0" y="165"></point>
+        <point x="0" y="225"></point>
+        <point x="300" y="225"></point>
+        <point x="300" y="180"></point>
+      </polygon>
+      <circle x="180" y="180" marked="false" color="255" diameter="90" filled="true"></circle>
+      <circle x="30" y="180" marked="false" color="255" diameter="90" filled="true"></circle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="162" y="80"></point>
+        <point x="132" y="78"></point>
+        <point x="134" y="135"></point>
+        <point x="209" y="135"></point>
+        <point x="194" y="105"></point>
+        <point x="189" y="96"></point>
+        <point x="180" y="89"></point>
+      </polygon>
+      <circle x="47" y="195" marked="true" color="-1920102913" diameter="58" filled="true"></circle>
+      <circle x="195" y="195" marked="true" color="-1920102913" diameter="58" filled="true"></circle>
+    </shape>
+    <shape name="circle" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+    </shape>
+    <shape name="circle 2" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+      <circle x="30" y="30" marked="false" color="255" diameter="240" filled="true"></circle>
+    </shape>
+    <shape name="cow" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="200" y="193"></point>
+        <point x="197" y="249"></point>
+        <point x="179" y="249"></point>
+        <point x="177" y="196"></point>
+        <point x="166" y="187"></point>
+        <point x="140" y="189"></point>
+        <point x="93" y="191"></point>
+        <point x="78" y="179"></point>
+        <point x="72" y="211"></point>
+        <point x="49" y="209"></point>
+        <point x="48" y="181"></point>
+        <point x="37" y="149"></point>
+        <point x="25" y="120"></point>
+        <point x="25" y="89"></point>
+        <point x="45" y="72"></point>
+        <point x="103" y="84"></point>
+        <point x="179" y="75"></point>
+        <point x="198" y="76"></point>
+        <point x="252" y="64"></point>
+        <point x="272" y="81"></point>
+        <point x="293" y="103"></point>
+        <point x="285" y="121"></point>
+        <point x="255" y="121"></point>
+        <point x="242" y="118"></point>
+        <point x="224" y="167"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="73" y="210"></point>
+        <point x="86" y="251"></point>
+        <point x="62" y="249"></point>
+        <point x="48" y="208"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="25" y="114"></point>
+        <point x="16" y="195"></point>
+        <point x="9" y="204"></point>
+        <point x="23" y="213"></point>
+        <point x="25" y="200"></point>
+        <point x="39" y="123"></point>
+      </polygon>
+    </shape>
+    <shape name="cylinder" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+    </shape>
+    <shape name="dot" rotatable="false" editableColorIndex="0">
+      <circle x="90" y="90" marked="true" color="-1920102913" diameter="120" filled="true"></circle>
+    </shape>
+    <shape name="face happy" rotatable="false" editableColorIndex="0">
+      <circle x="8" y="8" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
+      <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <circle x="180" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="150" y="255"></point>
+        <point x="90" y="239"></point>
+        <point x="62" y="213"></point>
+        <point x="47" y="191"></point>
+        <point x="67" y="179"></point>
+        <point x="90" y="203"></point>
+        <point x="109" y="218"></point>
+        <point x="150" y="225"></point>
+        <point x="192" y="218"></point>
+        <point x="210" y="203"></point>
+        <point x="227" y="181"></point>
+        <point x="251" y="194"></point>
+        <point x="236" y="217"></point>
+        <point x="212" y="240"></point>
+      </polygon>
+    </shape>
+    <shape name="face neutral" rotatable="false" editableColorIndex="0">
+      <circle x="8" y="7" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
+      <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <circle x="180" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <rectangle endX="240" startY="195" marked="false" color="255" endY="225" startX="60" filled="true"></rectangle>
+    </shape>
+    <shape name="face sad" rotatable="false" editableColorIndex="0">
+      <circle x="8" y="8" marked="true" color="-1920102913" diameter="285" filled="true"></circle>
+      <circle x="60" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <circle x="180" y="75" marked="false" color="255" diameter="60" filled="true"></circle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="150" y="168"></point>
+        <point x="90" y="184"></point>
+        <point x="62" y="210"></point>
+        <point x="47" y="232"></point>
+        <point x="67" y="244"></point>
+        <point x="90" y="220"></point>
+        <point x="109" y="205"></point>
+        <point x="150" y="198"></point>
+        <point x="192" y="205"></point>
+        <point x="210" y="220"></point>
+        <point x="227" y="242"></point>
+        <point x="251" y="229"></point>
+        <point x="236" y="206"></point>
+        <point x="212" y="183"></point>
+      </polygon>
+    </shape>
+    <shape name="fish" rotatable="false" editableColorIndex="0">
+      <polygon color="-1" filled="true" marked="false">
+        <point x="44" y="131"></point>
+        <point x="21" y="87"></point>
+        <point x="15" y="86"></point>
+        <point x="0" y="120"></point>
+        <point x="15" y="150"></point>
+        <point x="0" y="180"></point>
+        <point x="13" y="214"></point>
+        <point x="20" y="212"></point>
+        <point x="45" y="166"></point>
+      </polygon>
+      <polygon color="-1" filled="true" marked="false">
+        <point x="135" y="195"></point>
+        <point x="119" y="235"></point>
+        <point x="95" y="218"></point>
+        <point x="76" y="210"></point>
+        <point x="46" y="204"></point>
+        <point x="60" y="165"></point>
+      </polygon>
+      <polygon color="-1" filled="true" marked="false">
+        <point x="75" y="45"></point>
+        <point x="83" y="77"></point>
+        <point x="71" y="103"></point>
+        <point x="86" y="114"></point>
+        <point x="166" y="78"></point>
+        <point x="135" y="60"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="30" y="136"></point>
+        <point x="151" y="77"></point>
+        <point x="226" y="81"></point>
+        <point x="280" y="119"></point>
+        <point x="292" y="146"></point>
+        <point x="292" y="160"></point>
+        <point x="287" y="170"></point>
+        <point x="270" y="195"></point>
+        <point x="195" y="210"></point>
+        <point x="151" y="212"></point>
+        <point x="30" y="166"></point>
+      </polygon>
+      <circle x="215" y="106" marked="false" color="255" diameter="30" filled="true"></circle>
+    </shape>
+    <shape name="flag" rotatable="false" editableColorIndex="0">
+      <rectangle endX="75" startY="15" marked="true" color="-1920102913" endY="300" startX="60" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="90" y="150"></point>
+        <point x="270" y="90"></point>
+        <point x="90" y="30"></point>
+      </polygon>
+      <line endX="90" startY="135" marked="true" color="-1920102913" endY="135" startX="75"></line>
+      <line endX="90" startY="45" marked="true" color="-1920102913" endY="45" startX="75"></line>
+    </shape>
+    <shape name="flower" rotatable="false" editableColorIndex="0">
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="135" y="120"></point>
+        <point x="165" y="165"></point>
+        <point x="180" y="210"></point>
+        <point x="180" y="240"></point>
+        <point x="150" y="300"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="240"></point>
+        <point x="195" y="195"></point>
+        <point x="165" y="135"></point>
+      </polygon>
+      <circle x="85" y="132" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="130" y="147" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="192" y="85" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="85" y="40" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="177" y="40" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="177" y="132" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="70" y="85" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="130" y="25" marked="true" color="-1920102913" diameter="38" filled="true"></circle>
+      <circle x="96" y="51" marked="true" color="-1920102913" diameter="108" filled="true"></circle>
+      <circle x="113" y="68" marked="false" color="255" diameter="74" filled="true"></circle>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="189" y="233"></point>
+        <point x="219" y="188"></point>
+        <point x="249" y="173"></point>
+        <point x="279" y="188"></point>
+        <point x="234" y="218"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="180" y="255"></point>
+        <point x="150" y="210"></point>
+        <point x="105" y="210"></point>
+        <point x="75" y="240"></point>
+        <point x="135" y="240"></point>
+      </polygon>
+    </shape>
+    <shape name="house" rotatable="false" editableColorIndex="0">
+      <rectangle endX="255" startY="120" marked="true" color="-1920102913" endY="285" startX="45" filled="true"></rectangle>
+      <rectangle endX="180" startY="210" marked="false" color="255" endY="285" startX="120" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="15" y="120"></point>
+        <point x="150" y="15"></point>
+        <point x="285" y="120"></point>
+      </polygon>
+      <line endX="270" startY="120" marked="false" color="255" endY="120" startX="30"></line>
+    </shape>
+    <shape name="leaf" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="210"></point>
+        <point x="135" y="195"></point>
+        <point x="120" y="210"></point>
+        <point x="60" y="210"></point>
+        <point x="30" y="195"></point>
+        <point x="60" y="180"></point>
+        <point x="60" y="165"></point>
+        <point x="15" y="135"></point>
+        <point x="30" y="120"></point>
+        <point x="15" y="105"></point>
+        <point x="40" y="104"></point>
+        <point x="45" y="90"></point>
+        <point x="60" y="90"></point>
+        <point x="90" y="105"></point>
+        <point x="105" y="120"></point>
+        <point x="120" y="120"></point>
+        <point x="105" y="60"></point>
+        <point x="120" y="60"></point>
+        <point x="135" y="30"></point>
+        <point x="150" y="15"></point>
+        <point x="165" y="30"></point>
+        <point x="180" y="60"></point>
+        <point x="195" y="60"></point>
+        <point x="180" y="120"></point>
+        <point x="195" y="120"></point>
+        <point x="210" y="105"></point>
+        <point x="240" y="90"></point>
+        <point x="255" y="90"></point>
+        <point x="263" y="104"></point>
+        <point x="285" y="105"></point>
+        <point x="270" y="120"></point>
+        <point x="285" y="135"></point>
+        <point x="240" y="165"></point>
+        <point x="240" y="180"></point>
+        <point x="270" y="195"></point>
+        <point x="240" y="210"></point>
+        <point x="180" y="210"></point>
+        <point x="165" y="195"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="195"></point>
+        <point x="135" y="240"></point>
+        <point x="120" y="255"></point>
+        <point x="105" y="255"></point>
+        <point x="105" y="285"></point>
+        <point x="135" y="285"></point>
+        <point x="165" y="240"></point>
+        <point x="165" y="195"></point>
+      </polygon>
+    </shape>
+    <shape name="line" rotatable="true" editableColorIndex="0">
+      <line endX="150" startY="0" marked="true" color="-1920102913" endY="300" startX="150"></line>
+    </shape>
+    <shape name="line half" rotatable="true" editableColorIndex="0">
+      <line endX="150" startY="0" marked="true" color="-1920102913" endY="150" startX="150"></line>
+    </shape>
+    <shape name="pentagon" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="15"></point>
+        <point x="15" y="120"></point>
+        <point x="60" y="285"></point>
+        <point x="240" y="285"></point>
+        <point x="285" y="120"></point>
+      </polygon>
+    </shape>
+    <shape name="person" rotatable="false" editableColorIndex="0">
+      <circle x="110" y="5" marked="true" color="-1920102913" diameter="80" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="120" y="195"></point>
+        <point x="90" y="285"></point>
+        <point x="105" y="300"></point>
+        <point x="135" y="300"></point>
+        <point x="150" y="225"></point>
+        <point x="165" y="300"></point>
+        <point x="195" y="300"></point>
+        <point x="210" y="285"></point>
+        <point x="180" y="195"></point>
+        <point x="195" y="90"></point>
+      </polygon>
+      <rectangle endX="172" startY="79" marked="true" color="-1920102913" endY="94" startX="127" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="195" y="90"></point>
+        <point x="240" y="150"></point>
+        <point x="225" y="180"></point>
+        <point x="165" y="105"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="105" y="90"></point>
+        <point x="60" y="150"></point>
+        <point x="75" y="180"></point>
+        <point x="135" y="105"></point>
+      </polygon>
+    </shape>
+    <shape name="plant" rotatable="false" editableColorIndex="0">
+      <rectangle endX="165" startY="90" marked="true" color="-1920102913" endY="300" startX="135" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="255"></point>
+        <point x="90" y="210"></point>
+        <point x="45" y="195"></point>
+        <point x="75" y="255"></point>
+        <point x="135" y="285"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="165" y="255"></point>
+        <point x="210" y="210"></point>
+        <point x="255" y="195"></point>
+        <point x="225" y="255"></point>
+        <point x="165" y="285"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="180"></point>
+        <point x="90" y="135"></point>
+        <point x="45" y="120"></point>
+        <point x="75" y="180"></point>
+        <point x="135" y="210"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="165" y="180"></point>
+        <point x="165" y="210"></point>
+        <point x="225" y="180"></point>
+        <point x="255" y="120"></point>
+        <point x="210" y="135"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="105"></point>
+        <point x="90" y="60"></point>
+        <point x="45" y="45"></point>
+        <point x="75" y="105"></point>
+        <point x="135" y="135"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="165" y="105"></point>
+        <point x="165" y="135"></point>
+        <point x="225" y="105"></point>
+        <point x="255" y="45"></point>
+        <point x="210" y="60"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="135" y="90"></point>
+        <point x="120" y="45"></point>
+        <point x="150" y="15"></point>
+        <point x="180" y="45"></point>
+        <point x="165" y="90"></point>
+      </polygon>
+    </shape>
+    <shape name="sheep" rotatable="false" editableColorIndex="15">
+      <circle x="203" y="65" marked="true" color="-1" diameter="88" filled="true"></circle>
+      <circle x="70" y="65" marked="true" color="-1" diameter="162" filled="true"></circle>
+      <circle x="150" y="105" marked="true" color="-1" diameter="120" filled="true"></circle>
+      <polygon color="-1920102913" filled="true" marked="false">
+        <point x="218" y="120"></point>
+        <point x="240" y="165"></point>
+        <point x="255" y="165"></point>
+        <point x="278" y="120"></point>
+      </polygon>
+      <circle x="214" y="72" marked="false" color="-1920102913" diameter="67" filled="true"></circle>
+      <rectangle endX="179" startY="223" marked="true" color="-1" endY="298" startX="164" filled="true"></rectangle>
+      <polygon color="-1" filled="true" marked="true">
+        <point x="45" y="285"></point>
+        <point x="30" y="285"></point>
+        <point x="30" y="240"></point>
+        <point x="15" y="195"></point>
+        <point x="45" y="210"></point>
+      </polygon>
+      <circle x="3" y="83" marked="true" color="-1" diameter="150" filled="true"></circle>
+      <rectangle endX="80" startY="221" marked="true" color="-1" endY="296" startX="65" filled="true"></rectangle>
+      <polygon color="-1" filled="true" marked="true">
+        <point x="195" y="285"></point>
+        <point x="210" y="285"></point>
+        <point x="210" y="240"></point>
+        <point x="240" y="210"></point>
+        <point x="195" y="210"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="false">
+        <point x="276" y="85"></point>
+        <point x="285" y="105"></point>
+        <point x="302" y="99"></point>
+        <point x="294" y="83"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="false">
+        <point x="219" y="85"></point>
+        <point x="210" y="105"></point>
+        <point x="193" y="99"></point>
+        <point x="201" y="83"></point>
+      </polygon>
+    </shape>
+    <shape name="square" rotatable="false" editableColorIndex="0">
+      <rectangle endX="270" startY="30" marked="true" color="-1920102913" endY="270" startX="30" filled="true"></rectangle>
+    </shape>
+    <shape name="square 2" rotatable="false" editableColorIndex="0">
+      <rectangle endX="270" startY="30" marked="true" color="-1920102913" endY="270" startX="30" filled="true"></rectangle>
+      <rectangle endX="240" startY="60" marked="false" color="255" endY="240" startX="60" filled="true"></rectangle>
+    </shape>
+    <shape name="star" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="151" y="1"></point>
+        <point x="185" y="108"></point>
+        <point x="298" y="108"></point>
+        <point x="207" y="175"></point>
+        <point x="242" y="282"></point>
+        <point x="151" y="216"></point>
+        <point x="59" y="282"></point>
+        <point x="94" y="175"></point>
+        <point x="3" y="108"></point>
+        <point x="116" y="108"></point>
+      </polygon>
+    </shape>
+    <shape name="target" rotatable="false" editableColorIndex="0">
+      <circle x="0" y="0" marked="true" color="-1920102913" diameter="300" filled="true"></circle>
+      <circle x="30" y="30" marked="false" color="255" diameter="240" filled="true"></circle>
+      <circle x="60" y="60" marked="true" color="-1920102913" diameter="180" filled="true"></circle>
+      <circle x="90" y="90" marked="false" color="255" diameter="120" filled="true"></circle>
+      <circle x="120" y="120" marked="true" color="-1920102913" diameter="60" filled="true"></circle>
+    </shape>
+    <shape name="tree" rotatable="false" editableColorIndex="0">
+      <circle x="118" y="3" marked="true" color="-1920102913" diameter="94" filled="true"></circle>
+      <rectangle endX="180" startY="195" marked="false" color="-1653716737" endY="300" startX="120" filled="true"></rectangle>
+      <circle x="65" y="21" marked="true" color="-1920102913" diameter="108" filled="true"></circle>
+      <circle x="116" y="41" marked="true" color="-1920102913" diameter="127" filled="true"></circle>
+      <circle x="45" y="90" marked="true" color="-1920102913" diameter="120" filled="true"></circle>
+      <circle x="104" y="74" marked="true" color="-1920102913" diameter="152" filled="true"></circle>
+    </shape>
+    <shape name="triangle" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="30"></point>
+        <point x="15" y="255"></point>
+        <point x="285" y="255"></point>
+      </polygon>
+    </shape>
+    <shape name="triangle 2" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="150" y="30"></point>
+        <point x="15" y="255"></point>
+        <point x="285" y="255"></point>
+      </polygon>
+      <polygon color="255" filled="true" marked="false">
+        <point x="151" y="99"></point>
+        <point x="225" y="223"></point>
+        <point x="75" y="224"></point>
+      </polygon>
+    </shape>
+    <shape name="truck" rotatable="false" editableColorIndex="0">
+      <rectangle endX="195" startY="45" marked="true" color="-1920102913" endY="187" startX="4" filled="true"></rectangle>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="296" y="193"></point>
+        <point x="296" y="150"></point>
+        <point x="259" y="134"></point>
+        <point x="244" y="104"></point>
+        <point x="208" y="104"></point>
+        <point x="207" y="194"></point>
+      </polygon>
+      <rectangle endX="195" startY="60" marked="false" color="-1" endY="105" startX="195" filled="true"></rectangle>
+      <polygon color="255" filled="true" marked="false">
+        <point x="238" y="112"></point>
+        <point x="252" y="141"></point>
+        <point x="219" y="141"></point>
+        <point x="218" y="112"></point>
+      </polygon>
+      <circle x="234" y="174" marked="false" color="255" diameter="42" filled="true"></circle>
+      <rectangle endX="214" startY="185" marked="true" color="-1920102913" endY="194" startX="181" filled="true"></rectangle>
+      <circle x="144" y="174" marked="false" color="255" diameter="42" filled="true"></circle>
+      <circle x="24" y="174" marked="false" color="255" diameter="42" filled="true"></circle>
+      <circle x="24" y="174" marked="true" color="-1920102913" diameter="42" filled="false"></circle>
+      <circle x="144" y="174" marked="true" color="-1920102913" diameter="42" filled="false"></circle>
+      <circle x="234" y="174" marked="true" color="-1920102913" diameter="42" filled="false"></circle>
+    </shape>
+    <shape name="turtle" rotatable="true" editableColorIndex="0">
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="215" y="204"></point>
+        <point x="240" y="233"></point>
+        <point x="246" y="254"></point>
+        <point x="228" y="266"></point>
+        <point x="215" y="252"></point>
+        <point x="193" y="210"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="195" y="90"></point>
+        <point x="225" y="75"></point>
+        <point x="245" y="75"></point>
+        <point x="260" y="89"></point>
+        <point x="269" y="108"></point>
+        <point x="261" y="124"></point>
+        <point x="240" y="105"></point>
+        <point x="225" y="105"></point>
+        <point x="210" y="105"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="105" y="90"></point>
+        <point x="75" y="75"></point>
+        <point x="55" y="75"></point>
+        <point x="40" y="89"></point>
+        <point x="31" y="108"></point>
+        <point x="39" y="124"></point>
+        <point x="60" y="105"></point>
+        <point x="75" y="105"></point>
+        <point x="90" y="105"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="132" y="85"></point>
+        <point x="134" y="64"></point>
+        <point x="107" y="51"></point>
+        <point x="108" y="17"></point>
+        <point x="150" y="2"></point>
+        <point x="192" y="18"></point>
+        <point x="192" y="52"></point>
+        <point x="169" y="65"></point>
+        <point x="172" y="87"></point>
+      </polygon>
+      <polygon color="1504722175" filled="true" marked="false">
+        <point x="85" y="204"></point>
+        <point x="60" y="233"></point>
+        <point x="54" y="254"></point>
+        <point x="72" y="266"></point>
+        <point x="85" y="252"></point>
+        <point x="107" y="210"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="119" y="75"></point>
+        <point x="179" y="75"></point>
+        <point x="209" y="101"></point>
+        <point x="224" y="135"></point>
+        <point x="220" y="225"></point>
+        <point x="175" y="261"></point>
+        <point x="128" y="261"></point>
+        <point x="81" y="224"></point>
+        <point x="74" y="135"></point>
+        <point x="88" y="99"></point>
+      </polygon>
+    </shape>
+    <shape name="wheel" rotatable="false" editableColorIndex="0">
+      <circle x="3" y="3" marked="true" color="-1920102913" diameter="294" filled="true"></circle>
+      <circle x="30" y="30" marked="false" color="255" diameter="240" filled="true"></circle>
+      <line endX="150" startY="285" marked="true" color="-1920102913" endY="15" startX="150"></line>
+      <line endX="285" startY="150" marked="true" color="-1920102913" endY="150" startX="15"></line>
+      <circle x="120" y="120" marked="true" color="-1920102913" diameter="60" filled="true"></circle>
+      <line endX="79" startY="40" marked="true" color="-1920102913" endY="269" startX="216"></line>
+      <line endX="269" startY="84" marked="true" color="-1920102913" endY="221" startX="40"></line>
+      <line endX="269" startY="216" marked="true" color="-1920102913" endY="79" startX="40"></line>
+      <line endX="221" startY="40" marked="true" color="-1920102913" endY="269" startX="84"></line>
+    </shape>
+    <shape name="wolf" rotatable="false" editableColorIndex="0">
+      <polygon color="255" filled="true" marked="false">
+        <point x="253" y="133"></point>
+        <point x="245" y="131"></point>
+        <point x="245" y="133"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="2" y="194"></point>
+        <point x="13" y="197"></point>
+        <point x="30" y="191"></point>
+        <point x="38" y="193"></point>
+        <point x="38" y="205"></point>
+        <point x="20" y="226"></point>
+        <point x="20" y="257"></point>
+        <point x="27" y="265"></point>
+        <point x="38" y="266"></point>
+        <point x="40" y="260"></point>
+        <point x="31" y="253"></point>
+        <point x="31" y="230"></point>
+        <point x="60" y="206"></point>
+        <point x="68" y="198"></point>
+        <point x="75" y="209"></point>
+        <point x="66" y="228"></point>
+        <point x="65" y="243"></point>
+        <point x="82" y="261"></point>
+        <point x="84" y="268"></point>
+        <point x="100" y="267"></point>
+        <point x="103" y="261"></point>
+        <point x="77" y="239"></point>
+        <point x="79" y="231"></point>
+        <point x="100" y="207"></point>
+        <point x="98" y="196"></point>
+        <point x="119" y="201"></point>
+        <point x="143" y="202"></point>
+        <point x="160" y="195"></point>
+        <point x="166" y="210"></point>
+        <point x="172" y="213"></point>
+        <point x="173" y="238"></point>
+        <point x="167" y="251"></point>
+        <point x="160" y="248"></point>
+        <point x="154" y="265"></point>
+        <point x="169" y="264"></point>
+        <point x="178" y="247"></point>
+        <point x="186" y="240"></point>
+        <point x="198" y="260"></point>
+        <point x="200" y="271"></point>
+        <point x="217" y="271"></point>
+        <point x="219" y="262"></point>
+        <point x="207" y="258"></point>
+        <point x="195" y="230"></point>
+        <point x="192" y="198"></point>
+        <point x="210" y="184"></point>
+        <point x="227" y="164"></point>
+        <point x="242" y="144"></point>
+        <point x="259" y="145"></point>
+        <point x="284" y="151"></point>
+        <point x="277" y="141"></point>
+        <point x="293" y="140"></point>
+        <point x="299" y="134"></point>
+        <point x="297" y="127"></point>
+        <point x="273" y="119"></point>
+        <point x="270" y="105"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="-1" y="195"></point>
+        <point x="14" y="180"></point>
+        <point x="36" y="166"></point>
+        <point x="40" y="153"></point>
+        <point x="53" y="140"></point>
+        <point x="82" y="131"></point>
+        <point x="134" y="133"></point>
+        <point x="159" y="126"></point>
+        <point x="188" y="115"></point>
+        <point x="227" y="108"></point>
+        <point x="236" y="102"></point>
+        <point x="238" y="98"></point>
+        <point x="268" y="86"></point>
+        <point x="269" y="92"></point>
+        <point x="281" y="87"></point>
+        <point x="269" y="103"></point>
+        <point x="269" y="113"></point>
+      </polygon>
+    </shape>
+    <shape name="x" rotatable="false" editableColorIndex="0">
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="270" y="75"></point>
+        <point x="225" y="30"></point>
+        <point x="30" y="225"></point>
+        <point x="75" y="270"></point>
+      </polygon>
+      <polygon color="-1920102913" filled="true" marked="true">
+        <point x="30" y="75"></point>
+        <point x="75" y="30"></point>
+        <point x="270" y="225"></point>
+        <point x="225" y="270"></point>
+      </polygon>
+    </shape>
+  </turtleShapes>
+  <linkShapes>
+    <shape name="default" curviness="0.0">
+      <lines>
+        <line x="-0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+        <line x="0.0" visible="true">
+          <dash value="1.0"></dash>
+          <dash value="0.0"></dash>
+        </line>
+        <line x="0.2" visible="false">
+          <dash value="0.0"></dash>
+          <dash value="1.0"></dash>
+        </line>
+      </lines>
+      <indicator>
+        <shape name="link direction" rotatable="true" editableColorIndex="0">
+          <line endX="90" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+          <line endX="210" startY="150" marked="true" color="-1920102913" endY="180" startX="150"></line>
+        </shape>
+      </indicator>
+    </shape>
+  </linkShapes>
+  <previewCommands>setup repeat 75 [ go ]</previewCommands>
+</model>
