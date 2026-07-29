@@ -6,7 +6,4 @@ docs/~$*.xlsx
 *.tif*
 *.tiff
 *.asc*
-/model/MAN/data/
-/model/JAK/data/
-/model/MUM/data/
 /model/MUM/sleuth_mumbai/
