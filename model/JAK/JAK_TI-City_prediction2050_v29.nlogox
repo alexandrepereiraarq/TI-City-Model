@@ -35,6 +35,7 @@ globals [
   structureplan-dataset
   tenure-dataset
   water-dataset ;; APS: created to support attracting development to the coastline
+  exposed-dataset ;; APS: exposure layer (0=none, 1=low, 2=moderate, 3=high)
   ssp-dataset ;; APS: created to support scenario implementation
 
   ;; PROPERTIES ;; APS: created subtitle for organisation
@@ -53,6 +54,7 @@ globals [
   ;; APS: agent utility weights
   ;; deprived agents
   dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water
+  exposed ;; APS: exposure level (0=none, 1=low, 2=moderate, 3=high)
   dpu-maxof dp-rad
   ;; low income agents
   liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water
@@ -70,6 +72,10 @@ globals [
   hi-red-maxof hi-red-rad
   hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope
   dp-w-list li-w-list mi-w-list hi-w-list
+
+  ;; Exposure weights (loaded from CSV)
+  dpu-exposed liu-exposed miu-exposed hiu-exposed
+  mi-red-exposed hi-red-exposed
 
   ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
   track-neighbourhood-changes?
@@ -195,7 +201,7 @@ to set-weights
     if i > 0 [set dp-w-list lput w dp-w-list] ;; I skip the first column, as it contains the line header (e.g., 'dp')
     set i i + 1
   ]
-  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water ] dp-w-list
+  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed ] dp-w-list
   set dpu-maxof 2
   set dp-rad 2
 
@@ -206,7 +212,7 @@ to set-weights
     if i > 0 [set li-w-list lput w li-w-list]
     set i i + 1
   ]
-  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water ] li-w-list
+  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed ] li-w-list
   set liu-maxof 1.5
   set li-rad 1
 
@@ -217,7 +223,7 @@ to set-weights
     if i > 0 [set mi-w-list lput w mi-w-list]
     set i i + 1
   ]
-  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water ] mi-w-list
+  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed ] mi-w-list
   set miu-maxof 1.5
   set mi-rad 3
 
@@ -228,7 +234,7 @@ to set-weights
     if i > 0 [set hi-w-list lput w hi-w-list]
     set i i + 1
   ]
-  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water ] hi-w-list
+  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed ] hi-w-list
   set hiu-maxof 4
   set hi-rad 3
 
@@ -408,6 +414,7 @@ to set-up
   ;; load-tenure ;; APS 16.10.2025: does this have any influence?
   load-slope
   load-water ;; APS: implemented this
+  load-exposed ;; APS: load exposure layer
   make-households
   make-developers
   set-scenarios
@@ -651,6 +658,13 @@ to load-water ;; APS: created the load-water function
   gis:apply-raster water-dataset water
 end
 
+;; Load exposure layer
+to load-exposed
+  set exposed-dataset gis:load-dataset "data/in/exposed.asc"
+  gis:apply-raster exposed-dataset exposed
+end
+
+
 ;;Count and set the number of neighbouring parcels that are built-up
 to load-neighbourhood
   ask patches [set neighbourhood
@@ -820,7 +834,7 @@ to load-UDP
       (cbd * dpu-cbd) + (shoppingmall * dpu-mall) + (markets * dpu-markets) +
       (road * dpu-road) + (density * dpu-density) + (schools * dpu-schools) +
       (attractive * dpu-attractive) + (healthfacilities * dpu-health ) + ((random-float 0.1) * dpu-random) +
-      (water * dpu-water ) ) ;; APS: added a water parameter to the utility functions
+      (water * dpu-water ) + (exposed * dpu-exposed) ) ;; APS: added water and exposed parameters to the utility functions
   ]
 end
 
@@ -831,7 +845,7 @@ to load-ULI
       (cbd * liu-cbd) + (shoppingmall * liu-mall) + (markets * liu-markets) +
       (road * liu-road) + (density * liu-density) + (schools * liu-schools) +
       (attractive * liu-attractive) + (healthfacilities * liu-health ) + ((random-float 0.1) * liu-random) +
-      (water * liu-water ) ) ;; APS: added a water parameter to the utility functions
+      (water * liu-water ) + (exposed * liu-exposed) ) ;; APS: added water and exposed parameters to the utility functions
   ]
 end
 
@@ -845,7 +859,7 @@ to load-UMI
       (cbd * miu-cbd) + (shoppingmall * miu-mall) + (markets * miu-markets) +
       (road * miu-road) + (density * miu-density) + (schools * miu-schools) +
       (attractive * miu-attractive) + (healthfacilities * miu-health) + ((random-float 0.1) * miu-random) +
-      (water * miu-water)) ;; APS: added a water parameter to the utility functions
+      (water * miu-water) + (exposed * miu-exposed)) ;; APS: added water and exposed parameters to the utility functions
 
     ;; APS: 13.12.2024 implementing a normalisation function to the utility. This is not seem necessary, as only the top patches are picked for each agent type.
     ;;let max_UMI max [UMI] of patches
@@ -859,8 +873,8 @@ end
 to load-UHI
   ask patches [
     ;; APS: added a water parameter to the utility functions
-    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water))
-    ;; set UHI ((suburb * hiu-suburb) + (nom-neighbourhood * hiu-neigbhour) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water))
+    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water) + (exposed * hiu-exposed))
+    ;; set UHI ((suburb * hiu-suburb) + (nom-neighbourhood * hiu-neigbhour) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water) + (exposed * hiu-exposed))
     ;; include a neighbourhood to calculate UHI
 
   ]
@@ -871,25 +885,25 @@ end
 ;; APS: 11.03.2025 refactored the utility functions to take in positive values (instead of distances to them)
 to load-UMED
   ask patches [
-    ;set UMED ((road * 8) + (suburb * 7) + (attractive * 7) + ((1 - nom-slope) * 7) + (schools * 5))
+    ;set UMED ((road * 8 + (exposed * mi-red-exposed)) + (suburb * 7) + (attractive * 7) + ((1 - nom-slope) * 7) + (schools * 5))
     ;; APS: extending the real estate developer agents utility functions to all utility layers
     set UMED ((suburb * mi-red-suburb) + (nom-neighbourhood * mi-red-neigbhour) + (bu * mi-red-bu) +
       (cbd * mi-red-cbd) + (shoppingmall * mi-red-mall) + (markets * mi-red-markets) +
       (road * mi-red-road) + (density * mi-red-density) + (schools * mi-red-schools) +
       (attractive * mi-red-attractive) + (healthfacilities * mi-red-health) + ((random-float 0.1) * mi-red-random) +
-      (water * mi-red-water) + ((1 - nom-slope) * mi-red-nom-slope))
+      (water * mi-red-water) + ((1 - nom-slope) * mi-red-nom-slope) + (exposed * mi-red-exposed)
   ]
 end
 
 ;; compute utility for high end real estate developers
 to load-UHED
   ask patches [
-    ;; set UHED ((road * 8) + (suburb * 6) + (attractive * 10) + (schools * 5))
+    ;; set UHED ((road * 8 + (exposed * hi-red-exposed)) + (suburb * 6) + (attractive * 10) + (schools * 5))
     set UHED ((suburb * hi-red-suburb) + (nom-neighbourhood * hi-red-neigbhour) + (bu * hi-red-bu) +
       (cbd * hi-red-cbd) + (shoppingmall * hi-red-mall) + (markets * hi-red-markets) +
       (road * hi-red-road) + (density * hi-red-density) + (schools * hi-red-schools) +
       (attractive * hi-red-attractive) + (healthfacilities * hi-red-health) + ((random-float 0.1) * hi-red-random) +
-      (water * hi-red-water) + ((1 - nom-slope) * hi-red-nom-slope))
+      (water * hi-red-water) + ((1 - nom-slope) * hi-red-nom-slope) + (exposed * hi-red-exposed)
   ]
 end
 ;;........................................................................................................................................
