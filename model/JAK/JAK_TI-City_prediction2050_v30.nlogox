@@ -37,6 +37,7 @@ globals [
   water-dataset ;; APS: created to support attracting development to the coastline
   exposed-dataset ;; APS: exposure layer (0=none, 1=low, 2=moderate, 3=high)
   ssp-dataset ;; APS: created to support scenario implementation
+  scenarios-data ;; APS: store scenarios from CSV
 
   ;; PROPERTIES ;; APS: created subtitle for organisation
   slope_max
@@ -251,36 +252,66 @@ to set-weights
 end
 
 to set-scenarios
-;; Standard scenario
-  (ifelse
-    scenario = "standard"
-    [ set
-      [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-      [  33334 10 43 20 27 80 17 50 ]
-      load-exclusion
-    ] ;; standard true
-    [ ifelse scenario = "SSP1" ;; standard else
-      [ set
-        [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-        [ 34768 7 23 33 37 80 17 80 ]
-        load-ssp1
-      ] ;; SSP1 true (standard false)
-      [ ifelse scenario = "SSP2" ;; SSP1 else
-        [ set
-          [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-          [ 33334 13 48 20 19 80 25 50 ]
-          load-ssp2
-        ]  ;; SSP2 true
-        [ if scenario = "SSP3" ;; SSP2 else
-          [ set
-            [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-            [ 32073 20 60 10 10 80 35 30 ]
-            load-ssp3
-          ] ;; SSP3 true
-        ] ;; closing SSP3
-      ] ;; closing SSP2
-    ] ;; closing SSP1
-  )
+  ;; Load scenarios from CSV file
+  file-close-all
+  file-open "./data/in/scenarios.csv"
+  let data csv:from-file "./data/in/scenarios.csv"
+  set scenarios-data data
+  
+  ;; Map interface scenario names to CSV names
+  let csv-scenario-name ""
+  ifelse scenario = "standard"
+    [ set csv-scenario-name "std" ]
+    [ ifelse scenario = "SSP1"
+        [ set csv-scenario-name "ssp1" ]
+        [ ifelse scenario = "SSP2"
+            [ set csv-scenario-name "ssp2" ]
+            [ if scenario = "SSP3"
+                [ set csv-scenario-name "sspr3" ]
+            ]
+        ]
+    ]
+  
+  ;; Find the scenario matching the csv-scenario-name
+  let found? false
+  
+  foreach but-first data [
+    let row ?
+    let name first row
+    if name = csv-scenario-name [
+      set found? true
+      ;; Extract values from the row
+      set household-number item 1 row
+      set percent-deprived-households item 2 row
+      set percent-low-income-households item 3 row
+      set percent-mid-income-households item 4 row
+      set percent-high-income-households item 5 row
+      set slope_coefficient item 6 row
+      set critical_slope item 7 row
+      set development_control item 8 row
+      let exclusion_layer item 9 row
+      
+      ;; Load the appropriate exclusion layer
+      ifelse exclusion_layer = "exclusion"
+        [ load-exclusion ]
+        [ ifelse exclusion_layer = "ssp1"
+            [ load-ssp1 ]
+            [ ifelse exclusion_layer = "ssp2"
+                [ load-ssp2 ]
+                [ if exclusion_layer = "ssp3"
+                    [ load-ssp3 ]
+                ]
+            ]
+        ]
+      stop
+    ]
+  ]
+  
+  if not found? [
+    user-message (word "Scenario '" csv-scenario-name "' not found in scenarios.csv")
+  ]
+  
+  file-close
 end
 
 
