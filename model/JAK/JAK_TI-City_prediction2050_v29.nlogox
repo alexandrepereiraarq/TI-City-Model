@@ -7,7 +7,8 @@
 
 extensions [ gis csv]
 
-globals [road-dataset
+globals [
+  road-dataset
   ;; DATASETS ;; APS: created subtitle for organisation, organised alphabetically
   airport-dataset
   airport-vector
@@ -69,8 +70,6 @@ globals [road-dataset
   hi-red-maxof hi-red-rad
   hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope
   dp-w-list li-w-list mi-w-list hi-w-list
-
-
 
   ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
   track-neighbourhood-changes?
@@ -167,7 +166,7 @@ households-own [
   LIH-movement
   HIH-movement
   MIH-movement
-]
+  ]
 ;;.................................................
 
 breed [ developers developer ]
@@ -246,31 +245,6 @@ to set-weights
   set hi-red-rad 2
 
   file-close
-
-  ;;set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water ]
-  ;; [ 3 9 9 4 2 7 3 9 4 2 2 1 10 ] ;; APS: 17.12.2024
-  ;;[3 10 10 2 1 7 20 9 4 2 2 1 10] ;; APS 07.03.2025
-  ;;[1 9 9 1 1 9 30 9 1 1 1 1 9] ;; APS 12.03.2025
-
-  ;; low income agents
-  ;;set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water ]
-  ;;[ 8 7 9 7 2 7 8 9 4 2 4 1 7 ] ;; APS: 17.12.2024
-  ;;[8 7 9 7 1 7 90 9 4 2 4 1 3]
-  ;;[9 3 9 9 1 9 80 9 1 1 3 1 0]
-
-
-  ;; middle income agents
-  ;;set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water ]
-  ;;[ 6 7 7 4 7 7 6 6 4 7 4 1 5 ]
-  ;;[6 7 7 4 7 7 50 6 4 7 4 1 3]
-  ;;[3 3 3 3 9 9 60 3 1 9 3 1 0]
-
-
-  ;; high income agents
-  ;;set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water ]
-  ;;[ 5 7 2 7 9 6 5 1 4 10 3 1 8 ]
-  ;;[5 7 1 7 10 4 20 1 4 10 3 1 8]
-  ;;[3 3 1 9 9 3 50 1 1 9 3 1 0]
 
 end
 
