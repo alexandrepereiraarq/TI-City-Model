@@ -54,7 +54,7 @@ globals [
   ;; APS: agent utility weights
   ;; deprived agents
   dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed
-  exposed ;; APS: exposure level (0=none, 1=low, 2=moderate, 3=high)
+  ;;exposed ;; APS: 
   dpu-maxof dp-rad
   ;; low income agents
   liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed
@@ -97,7 +97,7 @@ patches-own [
   density
   density-flip
   exclusion
-  ;;exposed ;; APS: created 
+  exposed ;; APS: created exposure level (0=none, 1=low, 2=moderate, 3=high)
   income-patch ;; APS: created patches-own
   healthfacilities
   landvalue
