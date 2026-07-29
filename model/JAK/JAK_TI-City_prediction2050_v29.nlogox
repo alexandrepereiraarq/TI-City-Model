@@ -70,7 +70,14 @@ globals [road-dataset
   hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope
   dp-w-list li-w-list mi-w-list hi-w-list
 
-]
+
+
+  ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
+  track-neighbourhood-changes?
+  neighbourhood-changes-DP
+  neighbourhood-changes-LI
+  neighbourhood-changes-MI
+  neighbourhood-changes-HI]
 
 ;;.....................................................................
 ;;.....................................................................
@@ -145,7 +152,8 @@ patches-own [
   first-n-UMI ;; whether the patch has one of the highest middle income utility
   first-n-UHED ;; whether the patch has one of the highest utilities for high end estate developers
   first-n-UMED ;; whether the patch has one of the highest utilities for mid end estate developers
-]
+  neighbourhood-changed?  ;; DEBUG: tracks if patch changed in update-neighbourhood
+
 ;;................................................................................................
 ;;................................................................................................
 
@@ -1229,72 +1237,100 @@ end
 ;;UPDATE-NEIGHBOURHOOD
 to update-neighbourhood
 
+  ;; Reset counts for this tick
+  set neighbourhood-changes-DP 0
+  set neighbourhood-changes-LI 0
+  set neighbourhood-changes-MI 0
+  set neighbourhood-changes-HI 0
+
   ask patches with [(new-urban = 0) and (suitability = 1)] [
-    if ((count neighbors with [DP-movement = 1] >= 3 ) and (first-n-UDP = 0))
-    [
+    ;; Reset change flag for this tick
+    set neighbourhood-changed? 0
+
+    ;; Deprived (lowest priority)
+    if ((count neighbors with [DP-movement = 1] >= 3) and (first-n-UDP = 0 or landvalue > 1)) [
       set first-n-UDP 1
       set landvalue 1
       set first-n-ULI 0
       set first-n-UMI 0
       set first-n-UHI 0
-    ]
-    if ((count neighbors with [DP-movement = 1] >= 3 ) and (landvalue > 1))
-    [
-      set landvalue 1
-      set first-n-ULI 0
-      set first-n-UDP 1
-      set first-n-UMI 0
-      set first-n-UHI 0
-    ]
-    if ((count neighbors with [LI-movement = 1] >= 3 ) and (first-n-ULI = 0))
-    [
-      set first-n-ULI 1
-      set landvalue 1
-      set first-n-UDP 0
-      set first-n-UMI 0
-      set first-n-UHI 0
-    ]
-    if ((count neighbors with [LI-movement = 1] >= 3 ) and (landvalue > 1))
-    [
-      set landvalue 1
-      set first-n-ULI 1
-      set first-n-UDP 0
-      set first-n-UMI 0
-      set first-n-UHI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-DP neighbourhood-changes-DP + 1
+      ]
     ]
 
-    if ((count neighbors with [HI-movement = 1] >= 3) and (first-n-UHI = 0))
-    [
+    ;; Low-income (third priority)
+    if ((count neighbors with [LI-movement = 1] >= 3) and (first-n-ULI = 0 or landvalue > 1)) [
+      set first-n-ULI 1
+      set landvalue 1
+      set first-n-UDP 0
+      set first-n-UMI 0
+      set first-n-UHI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-LI neighbourhood-changes-LI + 1
+      ]
+    ]
+
+    ;; Middle-income (second priority)
+    if ((count neighbors with [MI-movement = 1] >= 3) and (first-n-UMI = 0 or landvalue > 2)) [
+      set first-n-UMI 1
+      set landvalue 2
+      set first-n-UDP 0
+      set first-n-ULI 0
+      set first-n-UHI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-MI neighbourhood-changes-MI + 1
+      ]
+    ]
+
+    ;; High-income (highest priority)
+    if ((count neighbors with [HI-movement = 1] >= 3) and (first-n-UHI = 0 or landvalue > 3)) [
       set first-n-UHI 1
+      set landvalue 3
       set first-n-UDP 0
       set first-n-ULI 0
       set first-n-UMI 0
-    ]
-
-    if ((count neighbors with [MI-movement = 1] >= 3 ) and (first-n-UMI = 0))
-    [
-      set first-n-UMI 1
-      set landvalue 2
-      set first-n-UDP 0
-      set first-n-UHI 0
-      set first-n-ULI 0
-    ]
-
-    if ((count neighbors with [MI-movement = 1] >= 3 ) and (landvalue > 2))
-    [
-      set landvalue 2
-      set first-n-UMI 1
-      set first-n-UDP 0
-      set first-n-UHI 0
-      set first-n-ULI 0
+      if track-neighbourhood-changes? [
+        set neighbourhood-changed? 1
+        set neighbourhood-changes-HI neighbourhood-changes-HI + 1
+      ]
     ]
   ]
 
+  ;; Optional: Print counts for debugging
+  if track-neighbourhood-changes? [
+    print (word "Neighbourhood changes this tick - DP: " neighbourhood-changes-DP
+           ", LI: " neighbourhood-changes-LI
+           ", MI: " neighbourhood-changes-MI
+           ", HI: " neighbourhood-changes-HI)
+  ]
 end
 ;;......................................................................................
 ;;......................................................................................
 
 
+
+
+;; Display neighbourhood changes (DEBUG ONLY)
+to display-neighbourhood-changes
+  if track-neighbourhood-changes? [
+    ask patches with [neighbourhood-changed? = 1] [
+      set pcolor yellow  ;; Highlight changed patches
+    ]
+  ]
+end
+
+;; Reset neighbourhood tracking (DEBUG ONLY)
+to reset-neighbourhood-tracking
+  set neighbourhood-changes-DP 0
+  set neighbourhood-changes-LI 0
+  set neighbourhood-changes-MI 0
+  set neighbourhood-changes-HI 0
+  ask patches [ set neighbourhood-changed? 0 ]
+end
 ;; EXPORT OUTPUT
 ;; APS: 12.12.2024 new export function, seeks to correct errors
 to export-income-status-as-asc
