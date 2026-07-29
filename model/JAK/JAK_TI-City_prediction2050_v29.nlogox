@@ -78,7 +78,7 @@ globals [
   mi-red-exposed hi-red-exposed
 
   ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
-  track-neighbourhood-changes?
+  ;;track-neighbourhood-changes?
   neighbourhood-changes-DP
   neighbourhood-changes-LI
   neighbourhood-changes-MI
@@ -158,7 +158,7 @@ patches-own [
   first-n-UHED ;; whether the patch has one of the highest utilities for high end estate developers
   first-n-UMED ;; whether the patch has one of the highest utilities for mid end estate developers
   neighbourhood-changed?  ;; DEBUG: tracks if patch changed in update-neighbourhood
-
+]
 ;;................................................................................................
 ;;................................................................................................
 
@@ -873,10 +873,12 @@ end
 to load-UHI
   ask patches [
     ;; APS: added a water parameter to the utility functions
-    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water) + (exposed * hiu-exposed))
+    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + 
+      (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + 
+      (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + 
+      (water * hiu-water) + (exposed * hiu-exposed))
     ;; set UHI ((suburb * hiu-suburb) + (nom-neighbourhood * hiu-neigbhour) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water) + (exposed * hiu-exposed))
     ;; include a neighbourhood to calculate UHI
-
   ]
 end
 ;;.........................................................................
@@ -891,7 +893,7 @@ to load-UMED
       (cbd * mi-red-cbd) + (shoppingmall * mi-red-mall) + (markets * mi-red-markets) +
       (road * mi-red-road) + (density * mi-red-density) + (schools * mi-red-schools) +
       (attractive * mi-red-attractive) + (healthfacilities * mi-red-health) + ((random-float 0.1) * mi-red-random) +
-      (water * mi-red-water) + ((1 - nom-slope) * mi-red-nom-slope) + (exposed * mi-red-exposed)
+      (water * mi-red-water) + ((1 - nom-slope) * mi-red-nom-slope) + (exposed * mi-red-exposed))
   ]
 end
 
@@ -903,7 +905,7 @@ to load-UHED
       (cbd * hi-red-cbd) + (shoppingmall * hi-red-mall) + (markets * hi-red-markets) +
       (road * hi-red-road) + (density * hi-red-density) + (schools * hi-red-schools) +
       (attractive * hi-red-attractive) + (healthfacilities * hi-red-health) + ((random-float 0.1) * hi-red-random) +
-      (water * hi-red-water) + ((1 - nom-slope) * hi-red-nom-slope) + (exposed * hi-red-exposed)
+      (water * hi-red-water) + ((1 - nom-slope) * hi-red-nom-slope) + (exposed * hi-red-exposed))
   ]
 end
 ;;........................................................................................................................................
