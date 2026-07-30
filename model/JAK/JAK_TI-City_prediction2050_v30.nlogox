@@ -261,9 +261,8 @@ to set-scenarios
   let scenario-row []
   
   foreach but-first data [
-    let row ?
-    if first row = scenario [
-      set scenario-row row
+    if first ? = scenario [
+      set scenario-row ?
       set found? true
       stop
     ]
