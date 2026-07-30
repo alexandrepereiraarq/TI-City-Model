@@ -37,7 +37,6 @@ globals [
   water-dataset ;; APS: created to support attracting development to the coastline
   exposed-dataset ;; APS: exposure layer (0=none, 1=low, 2=moderate, 3=high)
   ssp-dataset ;; APS: created to support scenario implementation
-  scenarios-data ;; APS: store scenarios from CSV
 
   ;; PROPERTIES ;; APS: created subtitle for organisation
   slope_max
@@ -252,64 +251,53 @@ to set-weights
 end
 
 to set-scenarios
-  ;; Load scenarios from CSV file
-  file-close-all
+  ;; code based on https://github.com/NetLogo/models/blob/master/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogo
+  file-close-all ;; Close any open files
   file-open "./data/in/scenarios.csv"
   let data csv:from-file "./data/in/scenarios.csv"
-  set scenarios-data data
   
-  ;; Map interface scenario names to CSV names
-  let csv-scenario-name ""
-  ifelse scenario = "standard"
-    [ set csv-scenario-name "std" ]
-    [ ifelse scenario = "SSP1"
-        [ set csv-scenario-name "ssp1" ]
-        [ ifelse scenario = "SSP2"
-            [ set csv-scenario-name "ssp2" ]
-            [ if scenario = "SSP3"
-                [ set csv-scenario-name "sspr3" ]
-            ]
-        ]
-    ]
-  
-  ;; Find the scenario matching the csv-scenario-name
+  ;; Find the matching scenario row by name (first column)
   let found? false
+  let scenario-row []
   
   foreach but-first data [
     let row ?
-    let name first row
-    if name = csv-scenario-name [
+    if first row = scenario [
+      set scenario-row row
       set found? true
-      ;; Extract values from the row
-      set household-number item 1 row
-      set percent-deprived-households item 2 row
-      set percent-low-income-households item 3 row
-      set percent-mid-income-households item 4 row
-      set percent-high-income-households item 5 row
-      set slope_coefficient item 6 row
-      set critical_slope item 7 row
-      set development_control item 8 row
-      let exclusion_layer item 9 row
-      
-      ;; Load the appropriate exclusion layer
-      ifelse exclusion_layer = "exclusion"
-        [ load-exclusion ]
-        [ ifelse exclusion_layer = "ssp1"
-            [ load-ssp1 ]
-            [ ifelse exclusion_layer = "ssp2"
-                [ load-ssp2 ]
-                [ if exclusion_layer = "ssp3"
-                    [ load-ssp3 ]
-                ]
-            ]
-        ]
       stop
     ]
   ]
   
   if not found? [
-    user-message (word "Scenario '" csv-scenario-name "' not found in scenarios.csv")
+    user-message (word "Scenario '" scenario "' not found in scenarios.csv")
+    stop
   ]
+  
+  ;; Extract values from the scenario row
+  ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high, slope_coeff, critical_slope, dev_control, , exclusion-file
+  set household-number item 1 scenario-row
+  set percent-deprived-households item 2 scenario-row
+  set percent-low-income-households item 3 scenario-row
+  set percent-mid-income-households item 4 scenario-row
+  set percent-high-income-households item 5 scenario-row
+  set slope_coefficient item 6 scenario-row
+  set critical_slope item 7 scenario-row
+  set development_control item 8 scenario-row
+  let exclusion_file item 10 scenario-row  ;; Skip the empty column at index 9
+  
+  ;; Load the appropriate exclusion layer based on exclusion_file
+  ifelse exclusion_file = "exclusion"
+    [ load-exclusion ]
+    [ ifelse exclusion_file = "exclusion_ssp1"
+        [ load-ssp1 ]
+        [ ifelse exclusion_file = "exclusion_ssp2"
+            [ load-ssp2 ]
+            [ if exclusion_file = "exclusion_ssp3"
+                [ load-ssp3 ]
+            ]
+        ]
+    ]
   
   file-close
 end
