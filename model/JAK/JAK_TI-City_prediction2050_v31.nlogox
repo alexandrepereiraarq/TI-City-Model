@@ -210,8 +210,6 @@ to set-weights
     set i i + 1
   ]
   set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed dpu-maxof dp-rad] dp-w-list
-  ;;set dpu-maxof 2
-  ;;set dp-rad 2
 
   ;; low income agents
   set i 0
@@ -221,8 +219,6 @@ to set-weights
     set i i + 1
   ]
   set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed liu-maxof li-rad] li-w-list
-  ;;set liu-maxof 1.5
-  ;;set li-rad 1
 
   ;; middle income agents
   set i 0
@@ -232,8 +228,6 @@ to set-weights
     set i i + 1
   ]
   set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed miu-maxof mi-rad] mi-w-list
-  ;;set miu-maxof 1.5
-  ;;set mi-rad 3
 
   ;; high income agents
   set i 0
@@ -243,8 +237,6 @@ to set-weights
     set i i + 1
   ]
   set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed hiu-maxof hi-rad] hi-w-list
-  ;;set hiu-maxof 4
-  ;;set hi-rad 3
 
   ;; mid RED
   set i 0
@@ -253,22 +245,19 @@ to set-weights
     if i > 0 [set mi-red-w-list lput w mi-red-w-list ]
     set i i + 1
   ]
-  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope] mi-red-w-list 
-  ;;[7 0 0 0 0 0 8 0 5 7 0 0 0 7]
-  ;;set mi-red-maxof 2
-  ;;set mi-red-rad 2
-
-  ;; high RED
+  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-exposed mi-red-maxof mi-red-rad mi-red-nom-slope] mi-red-w-list 
+  ;; print (word "MI-RED weights: " mi-red-suburb " " mi-red-neigbhour " " mi-red-bu " " mi-red-cbd " " mi-red-mall " " mi-red-markets " " mi-red-road " " mi-red-density " " mi-red-schools " " mi-red-attractive " " mi-red-health " " mi-red-random " " mi-red-water " " mi-red-exposed " " mi-red-maxof " " mi-red-rad " " mi-red-nom-slope)
+  
+    ;; high RED
   set i 0
   repeat length hi-red-weight [
     let w item i hi-red-weight
     if i > 0 [set hi-red-w-list lput w hi-red-w-list ]
     set i i + 1
   ]
-  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope] hi-red-w-list
-  ;;[6 0 0 0 0 0 8 0 5 10 0 0 0 0]
-  ;;set hi-red-maxof 2
-  ;;set hi-red-rad 2
+  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-exposed hi-red-maxof hi-red-rad hi-red-nom-slope] hi-red-w-list
+  ;;print (word "HI-RED weights: " hi-red-suburb " " hi-red-neigbhour " " hi-red-bu " " hi-red-cbd " " hi-red-mall " " hi-red-markets " " hi-red-road " " hi-red-density " " hi-red-schools " " hi-red-attractive " " hi-red-health " " hi-red-random " " hi-red-water " " hi-red-exposed " " hi-red-maxof " " hi-red-rad " " hi-red-nom-slope)
+  
 
   file-close
 
@@ -296,8 +285,9 @@ to set-scenarios
    while [ not file-at-end? ] [
     let candidate-row csv:from-row file-read-line
     let scenario-name item 0 candidate-row
-    print (word "loading scenario: " scenario-name)
+    
     if scenario-name = scenario [
+      print (word "loading scenario: " scenario-name)
       set scenario-row candidate-row
       set found? true
     ]
@@ -402,6 +392,7 @@ to do-calculations
   make-households
   make-developers
   set-scenarios
+  
   load-suitability
   load-informality
   load-informal-avail
@@ -463,12 +454,13 @@ to set-up
   make-households
   make-developers
   
+  load-exclusion
   load-suitability
   load-informality
   load-informal-avail
   activate-development-control
   
-  load-exclusion
+  
   load-nom-neighbourhood
   load-UDP
   load-ULI
@@ -1633,7 +1625,7 @@ end
     <slider x="7" step="1" y="416" max="100" width="200" display="percent-mid-end-developers" height="50" min="0" direction="Horizontal" default="67.0" variable="percent-mid-end-developers"></slider>
     <slider x="7" step="1" y="471" max="50" width="199" display="simulation-period" height="50" min="1" direction="Horizontal" default="25.0" variable="simulation-period"></slider>
     <button x="9" y="871" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="63" display="EU">experiment-urban</button>
-    <chooser x="107" y="902" height="60" variable="select-model" current="3" width="100" display="select-model">
+    <chooser x="107" y="902" height="60" variable="select-model" current="7" width="100" display="select-model">
       <choice type="string" value="airport"></choice>
       <choice type="string" value="attractive2015"></choice>
       <choice type="string" value="bu2000-dist"></choice>
