@@ -8,8 +8,10 @@
 extensions [ gis csv]
 
 globals [
-  road-dataset
+  scenarios-file-path
+  exclusion-file-path
   ;; DATASETS ;; APS: created subtitle for organisation, organised alphabetically
+  road-dataset
   airport-dataset
   airport-vector
   attractive-early-dataset ;; APS: this dataset is only loaded for the calibration model
@@ -54,30 +56,38 @@ globals [
   ;; APS: agent utility weights
   ;; deprived agents
   dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed
-  dpu-maxof dp-rad
+  ;;exposed ;; APS: 
+  dpu-maxof dp-rad dp-w-list
+  
   ;; low income agents
   liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed
-  liu-maxof li-rad
+  liu-maxof li-rad li-w-list
+  
   ;; middle income agents
   miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed
-  miu-maxof mi-rad
+  miu-maxof mi-rad mi-w-list
+  
   ;; high income agents
   hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed
-  hiu-maxof hi-rad
+  hiu-maxof hi-rad hi-w-list
+  
   ;; middle-end real estate developer agents
   mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope mi-red-exposed
-  mi-red-maxof mi-red-rad
+  mi-red-maxof mi-red-rad mi-red-w-list
+  
   ;; high-end real estate developer agents
-  hi-red-maxof hi-red-rad
   hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope hi-red-exposed
-  dp-w-list li-w-list mi-w-list hi-w-list
+  hi-red-maxof hi-red-rad hi-red-w-list
 
   ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
   ;;track-neighbourhood-changes?
   neighbourhood-changes-DP
   neighbourhood-changes-LI
   neighbourhood-changes-MI
-  neighbourhood-changes-HI]
+  neighbourhood-changes-HI
+]
+
+  ;;scenarios-file-path
 
 ;;.....................................................................
 ;;.....................................................................
@@ -180,7 +190,7 @@ MED-movement]
 
 ;; APS: new function to help set the weights
 to set-weights
-  set [dp-w-list li-w-list mi-w-list hi-w-list] [[][][][]]
+  set [dp-w-list li-w-list mi-w-list hi-w-list mi-red-w-list hi-red-w-list] [[][][][][][]]
   ;; code based on https://github.com/NetLogo/models/blob/master/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogo
   file-close-all ;; Close any open files
   file-open "./data/in/weights.csv"
@@ -189,6 +199,8 @@ to set-weights
   let li-weight item 2 data
   let mi-weight item 3 data
   let hi-weight item 4 data
+  let mi-red-weight item 5 data
+  let hi-red-weight item 6 data
 
   ;; deprived agents
   let i 0
@@ -197,9 +209,9 @@ to set-weights
     if i > 0 [set dp-w-list lput w dp-w-list] ;; I skip the first column, as it contains the line header (e.g., 'dp')
     set i i + 1
   ]
-  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed ] dp-w-list
-  set dpu-maxof 2
-  set dp-rad 2
+  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed dpu-maxof dp-rad] dp-w-list
+  ;;set dpu-maxof 2
+  ;;set dp-rad 2
 
   ;; low income agents
   set i 0
@@ -208,9 +220,9 @@ to set-weights
     if i > 0 [set li-w-list lput w li-w-list]
     set i i + 1
   ]
-  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed ] li-w-list
-  set liu-maxof 1.5
-  set li-rad 1
+  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed liu-maxof li-rad] li-w-list
+  ;;set liu-maxof 1.5
+  ;;set li-rad 1
 
   ;; middle income agents
   set i 0
@@ -219,9 +231,9 @@ to set-weights
     if i > 0 [set mi-w-list lput w mi-w-list]
     set i i + 1
   ]
-  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed ] mi-w-list
-  set miu-maxof 1.5
-  set mi-rad 3
+  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed miu-maxof mi-rad] mi-w-list
+  ;;set miu-maxof 1.5
+  ;;set mi-rad 3
 
   ;; high income agents
   set i 0
@@ -230,74 +242,99 @@ to set-weights
     if i > 0 [set hi-w-list lput w hi-w-list]
     set i i + 1
   ]
-  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed ] hi-w-list
-  set hiu-maxof 4
-  set hi-rad 3
+  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed hiu-maxof hi-rad] hi-w-list
+  ;;set hiu-maxof 4
+  ;;set hi-rad 3
 
   ;; mid RED
-  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope]
-  [7 0 0 0 0 0 8 0 5 7 0 0 0 7]
-  set mi-red-maxof 2
-  set mi-red-rad 2
+  set i 0
+  repeat length mi-red-weight [
+    let w item i mi-red-weight
+    if i > 0 [set mi-red-w-list lput w mi-red-w-list ]
+    set i i + 1
+  ]
+  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope] mi-red-w-list 
+  ;;[7 0 0 0 0 0 8 0 5 7 0 0 0 7]
+  ;;set mi-red-maxof 2
+  ;;set mi-red-rad 2
 
   ;; high RED
-  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope]
-  [6 0 0 0 0 0 8 0 5 10 0 0 0 0]
-  set hi-red-maxof 2
-  set hi-red-rad 2
+  set i 0
+  repeat length hi-red-weight [
+    let w item i hi-red-weight
+    if i > 0 [set hi-red-w-list lput w hi-red-w-list ]
+    set i i + 1
+  ]
+  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope] hi-red-w-list
+  ;;[6 0 0 0 0 0 8 0 5 10 0 0 0 0]
+  ;;set hi-red-maxof 2
+  ;;set hi-red-rad 2
 
   file-close
 
 end
 
 to set-scenarios
-  ;; code based on https://github.com/NetLogo/models/blob/master/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogo
+  ;; code based on https://github.com/NetLogo/models/blob/main/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogox
+  ;; https://stackoverflow.com/questions/78982817/how-to-retrieve-values-form-csv-file-in-netlogo
   file-close-all ;; Close any open files
-  file-open "./data/in/scenarios.csv"
-  let data csv:from-file "./data/in/scenarios.csv"
+  set scenarios-file-path "./data/in/scenarios.csv"
+  
+  if not file-exists? scenarios-file-path [
+    user-message "No file './data/in/scenarios.csv' exists in your home directory!"
+    stop
+  ]
+  
+  file-open scenarios-file-path
+  let data csv:from-file scenarios-file-path
+  let scenarios-headers  csv:from-row file-read-line ; store headers to find right column
   
   ;; Find the matching scenario row by name (first column)
   let found? false
   let scenario-row []
   
-  foreach but-first data [
-    if first ? = scenario [
-      set scenario-row ?
+  ;;foreach but-first data [
+    ;;if first ? = scenario [
+      ;;set scenario-row ?
+      ;;set found? true
+      ;;stop
+    ;;]
+  ;;]
+   while [ not file-at-end? ] [
+    let candidate-row csv:from-row file-read-line
+    if item 1 candidate-row = scenario [
+      set scenario-row candidate-row
       set found? true
       stop
     ]
   ]
   
   if not found? [
-    user-message (word "Scenario '" scenario "' not found in scenarios.csv")
+    user-message (word "Scenario '" scenario "' not found in" scenarios-file-path)
     stop
   ]
   
   ;; Extract values from the scenario row
-  ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high, slope_coeff, critical_slope, dev_control, , exclusion-file
-  set household-number item 1 scenario-row
-  set percent-deprived-households item 2 scenario-row
-  set percent-low-income-households item 3 scenario-row
-  set percent-mid-income-households item 4 scenario-row
-  set percent-high-income-households item 5 scenario-row
-  set slope_coefficient item 6 scenario-row
-  set critical_slope item 7 scenario-row
-  set development_control item 8 scenario-row
-  let exclusion_file item 10 scenario-row  ;; Skip the empty column at index 9
-  
-  ;; Load the appropriate exclusion layer based on exclusion_file
-  ifelse exclusion_file = "exclusion"
-    [ load-exclusion ]
-    [ ifelse exclusion_file = "exclusion_ssp1"
-        [ load-ssp1 ]
-        [ ifelse exclusion_file = "exclusion_ssp2"
-            [ load-ssp2 ]
-            [ if exclusion_file = "exclusion_ssp3"
-                [ load-ssp3 ]
-            ]
-        ]
-    ]
-  
+  ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high, slope_coeff, critical_slope, development_control, exclusion_file
+  ;;set household-number item 1 scenario-row
+  set household-number item (position "household-number" scenarios-headers) scenario-row
+  ;;set percent-deprived-households item 2 scenario-row
+  set percent-deprived-households item (position "percent-deprived-households" scenarios-headers) scenario-row
+  ;;set percent-low-income-households item 3 scenario-row
+  set percent-low-income-households item (position "percent-low-households" scenarios-headers) scenario-row
+  ;;set percent-mid-income-households item 4 scenario-row
+  set percent-mid-income-households item (position "percent-mid-households" scenarios-headers) scenario-row
+  ;;set percent-high-income-households item 5 scenario-row
+  set percent-high-income-households item (position "percent-high-households" scenarios-headers) scenario-row
+  ;;set slope-coefficient item 6 scenario-row
+  set slope_coefficient item (position "slope_coefficient" scenarios-headers) scenario-row
+  ;;set critical_slope item 7 scenario-row
+  set critical_slope item (position "critical_slope" scenarios-headers) scenario-row
+  ;;set development_control item 8 scenario-row
+  set development_control item (position "development_control" scenarios-headers) scenario-row
+  ;;let exclusion_file item 10 scenario-row  
+  set exclusion-file-path item (position "exclusion-file-path" scenarios-headers) scenario-row
+   
   file-close
 end
 
@@ -546,7 +583,7 @@ end
 
 ;;load exclusion layer
 to load-exclusion
-  set exclusion-dataset gis:load-dataset "data/in/exclusion.asc" ;; APS: renamed to include folder
+  set exclusion-dataset gis:load-dataset exclusion-file-path ;; APS: renamed to include folder
   gis:apply-raster exclusion-dataset exclusion
   ask patches [if exclusion = 1 [ set pcolor 99 ]]
   ;;gis:paint exclusion-dataset 0
