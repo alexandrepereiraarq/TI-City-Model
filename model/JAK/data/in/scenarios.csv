@@ -1,5 +1,5 @@
-name,household-number,percent-deprived-households,percent-low-income-households,percent-mid-income-households,percent-high-income-households,slope_coefficient,critical_slope,development_control,,exclusion-file
-std,33334,10,43,20,27,80,17,50,,exclusion
-ssp1,34768,7,23,33,37,80,17,80,,exclusion_ssp1
-ssp2,33334,13,48,20,19,80,25,50,,exclusion_ssp2
-ssp3,32073,20,60,10,10,80,35,30,,exclusion_ssp3
+name,household-number,percent-deprived-households,percent-low-income-households,percent-mid-income-households,percent-high-income-households,slope_coefficient,critical_slope,development_control,exclusion-file
+std,33334,10,43,20,27,80,17,50,exclusion
+ssp1,34768,7,23,33,37,80,17,80,exclusion_ssp1
+ssp2,33334,13,48,20,19,80,25,50,exclusion_ssp2
+ssp3,32073,20,60,10,10,80,35,30,exclusion_ssp3
