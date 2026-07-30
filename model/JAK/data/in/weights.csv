@@ -1,7 +1,9 @@
-﻿agent,suburban,neighbour,bu,cbd,mall,markets,road,density,schools,attractive,health,random,water,exposed
-dp,6,9,4,4,1,7,3,9,4,2,2,1,10,-3
-li,8,7,4,6,2,7,8,4,4,6,4,1,5,-2
-mi,6,7,7,7,7,7,6,4,4,7,4,1,5,-1
-hi,2,7,9,9,6,3,5,8,4,10,3,1,8,0
-mi_red,7,0,0,0,0,0,8,0,5,7,0,0,0,-1
-hi_red,6,0,0,0,0,0,8,0,5,10,0,0,0,0
+﻿agent,suburban,neighbour,bu,cbd,mall,markets,road,density,schools,attractive,health,random,water,exposed,maxof,rad,nom-slope
+dp,6,9,4,4,1,7,3,9,4,2,2,1,10,-3,2,2,0
+li,8,7,4,6,2,7,8,4,4,6,4,1,5,-2,1.5,1,0
+mi,6,7,7,7,7,7,6,4,4,7,4,1,5,-1,1.5,3,0
+hi,2,7,9,9,6,3,5,8,4,10,3,1,8,0,4,3,0
+mi_red,7,0,0,0,0,0,8,0,5,7,0,0,0,-1,2,2,7
+hi_red,6,0,0,0,0,0,8,0,5,10,0,0,0,0,2,2,0
+,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,
