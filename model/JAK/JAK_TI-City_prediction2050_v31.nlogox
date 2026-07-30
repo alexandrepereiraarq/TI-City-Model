@@ -293,19 +293,13 @@ to set-scenarios
   let found? false
   let scenario-row []
   
-  ;;foreach but-first data [
-    ;;if first ? = scenario [
-      ;;set scenario-row ?
-      ;;set found? true
-      ;;stop
-    ;;]
-  ;;]
    while [ not file-at-end? ] [
     let candidate-row csv:from-row file-read-line
-    if item 1 candidate-row = scenario [
+    let scenario-name item 0 candidate-row
+    print (word "loading scenario: " scenario-name)
+    if scenario-name = scenario [
       set scenario-row candidate-row
       set found? true
-      stop
     ]
   ]
   
@@ -316,24 +310,20 @@ to set-scenarios
   
   ;; Extract values from the scenario row
   ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high, slope_coeff, critical_slope, development_control, exclusion_file
-  ;;set household-number item 1 scenario-row
-  set household-number item (position "household-number" scenarios-headers) scenario-row
-  ;;set percent-deprived-households item 2 scenario-row
-  set percent-deprived-households item (position "percent-deprived-households" scenarios-headers) scenario-row
-  ;;set percent-low-income-households item 3 scenario-row
-  set percent-low-income-households item (position "percent-low-households" scenarios-headers) scenario-row
-  ;;set percent-mid-income-households item 4 scenario-row
-  set percent-mid-income-households item (position "percent-mid-households" scenarios-headers) scenario-row
-  ;;set percent-high-income-households item 5 scenario-row
-  set percent-high-income-households item (position "percent-high-households" scenarios-headers) scenario-row
-  ;;set slope-coefficient item 6 scenario-row
-  set slope_coefficient item (position "slope_coefficient" scenarios-headers) scenario-row
-  ;;set critical_slope item 7 scenario-row
-  set critical_slope item (position "critical_slope" scenarios-headers) scenario-row
-  ;;set development_control item 8 scenario-row
-  set development_control item (position "development_control" scenarios-headers) scenario-row
-  ;;let exclusion_file item 10 scenario-row  
-  set exclusion-file-path item (position "exclusion-file-path" scenarios-headers) scenario-row
+  set household-number item 1 scenario-row  
+  ;;print (word "household number: " household-number) ;; APS: used for debugging
+  set percent-deprived-households item 2 scenario-row  
+  ;;print (word "deprived household pct: " percent-deprived-households) ;; APS: used for debugging
+  set percent-low-income-households item 3 scenario-row  
+  ;;print (word "low income household pct: " percent-low-income-households) ;; APS: used for debugging
+  set percent-mid-income-households item 4 scenario-row  
+  set percent-high-income-households item 5 scenario-row  
+  set slope_coefficient item 6 scenario-row  
+  set critical_slope item 7 scenario-row  
+  set development_control item 8 scenario-row  
+  let exclusion_file item 9 scenario-row    
+  set exclusion-file-path exclusion_file  
+  ;;print (word "exclusion file: " exclusion-file-path) ;; APS: used for debugging
    
   file-close
 end
@@ -466,14 +456,19 @@ to set-up
   load-slope
   load-water ;; APS: implemented this
   load-exposed ;; APS: load exposure layer
+  set-scenarios ;; APS: added scenarios-setting function based on external file
+  set-weights;; APS: added weight-setting function based on external file
+  
+  ;; initialise agents
   make-households
   make-developers
-  set-scenarios
+  
   load-suitability
   load-informality
   load-informal-avail
   activate-development-control
-  set-weights;; APS: added weight-setting function
+  
+  load-exclusion
   load-nom-neighbourhood
   load-UDP
   load-ULI
@@ -583,7 +578,11 @@ end
 
 ;;load exclusion layer
 to load-exclusion
-  set exclusion-dataset gis:load-dataset exclusion-file-path ;; APS: renamed to include folder
+  if not file-exists? exclusion-file-path [ ;; APS: file is passed down from scenarios settings
+    user-message (word "No file "  exclusion-file-path " exists in your home directory!")
+    stop
+  ]
+  set exclusion-dataset gis:load-dataset exclusion-file-path
   gis:apply-raster exclusion-dataset exclusion
   ask patches [if exclusion = 1 [ set pcolor 99 ]]
   ;;gis:paint exclusion-dataset 0
