@@ -8,8 +8,11 @@
 extensions [ gis csv]
 
 globals [
-  road-dataset
+  scenarios-file-path
+  exclusion-file-path
+  weights-file-path
   ;; DATASETS ;; APS: created subtitle for organisation, organised alphabetically
+  road-dataset
   airport-dataset
   airport-vector
   attractive-early-dataset ;; APS: this dataset is only loaded for the calibration model
@@ -53,36 +56,39 @@ globals [
 
   ;; APS: agent utility weights
   ;; deprived agents
-  dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water
-  exposed ;; APS: exposure level (0=none, 1=low, 2=moderate, 3=high)
-  dpu-maxof dp-rad
+  dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed
+  ;;exposed ;; APS: 
+  dpu-maxof dp-rad dp-w-list
+  
   ;; low income agents
-  liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water
-  liu-maxof li-rad
+  liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed
+  liu-maxof li-rad li-w-list
+  
   ;; middle income agents
-  miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water
-  miu-maxof mi-rad
+  miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed
+  miu-maxof mi-rad mi-w-list
+  
   ;; high income agents
-  hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water
-  hiu-maxof hi-rad
+  hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed
+  hiu-maxof hi-rad hi-w-list
+  
   ;; middle-end real estate developer agents
-  mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope
-  mi-red-maxof mi-red-rad
+  mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope mi-red-exposed
+  mi-red-maxof mi-red-rad mi-red-w-list
+  
   ;; high-end real estate developer agents
-  hi-red-maxof hi-red-rad
-  hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope
-  dp-w-list li-w-list mi-w-list hi-w-list
-
-  ;; Exposure weights (loaded from CSV)
-  dpu-exposed liu-exposed miu-exposed hiu-exposed
-  mi-red-exposed hi-red-exposed
+  hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope hi-red-exposed
+  hi-red-maxof hi-red-rad hi-red-w-list
 
   ;; NEIGHBOURHOOD TRACKING (DEBUG ONLY)
   ;;track-neighbourhood-changes?
   neighbourhood-changes-DP
   neighbourhood-changes-LI
   neighbourhood-changes-MI
-  neighbourhood-changes-HI]
+  neighbourhood-changes-HI
+]
+
+  ;;scenarios-file-path
 
 ;;.....................................................................
 ;;.....................................................................
@@ -101,6 +107,7 @@ patches-own [
   density
   density-flip
   exclusion
+  exposed ;; APS: created exposure level (0=none, 1=low, 2=moderate, 3=high)
   income-patch ;; APS: created patches-own
   healthfacilities
   landvalue
@@ -113,11 +120,11 @@ patches-own [
   road ;; FA: proximity to road
   road-presence ;; FA: whether or not there is road
   suburb
-  suburb-area ;; FA: to define patches within a specified radius of suburbs
+  ;;suburb-area ;; FA: to define patches within a specified radius of suburbs
   shoppingmall
   schools
   slope
-  slope-pct
+  ;;slope-pct ;; APS: already input as percentage
   nom-slope
   structureplan
   tenure
@@ -126,7 +133,7 @@ patches-own [
 
   ;; CALCULATED PROPERTIES
   ;;attract-early-area
-  attract-area
+  ;;attract-area ; APS: not used in any procedure
   informality
   informal_avail ;; informal lands that are available for development
   suitability
@@ -184,15 +191,17 @@ MED-movement]
 
 ;; APS: new function to help set the weights
 to set-weights
-  set [dp-w-list li-w-list mi-w-list hi-w-list] [[][][][]]
+  set [dp-w-list li-w-list mi-w-list hi-w-list mi-red-w-list hi-red-w-list] [[][][][][][]]
   ;; code based on https://github.com/NetLogo/models/blob/master/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogo
   file-close-all ;; Close any open files
-  file-open "./data/in/weights.csv"
-  let data csv:from-file  "./data/in/weights.csv"
+  file-open weights-file-path;;"./data/in/weights.csv"
+  let data csv:from-file weights-file-path ;;"./data/in/weights.csv"
   let dp-weight item 1 data ;; I skip the first row as it contains only the headers
   let li-weight item 2 data
   let mi-weight item 3 data
   let hi-weight item 4 data
+  let mi-red-weight item 5 data
+  let hi-red-weight item 6 data
 
   ;; deprived agents
   let i 0
@@ -201,9 +210,7 @@ to set-weights
     if i > 0 [set dp-w-list lput w dp-w-list] ;; I skip the first column, as it contains the line header (e.g., 'dp')
     set i i + 1
   ]
-  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed ] dp-w-list
-  set dpu-maxof 2
-  set dp-rad 2
+  set [ dpu-suburb dpu-neigbhour dpu-bu dpu-cbd dpu-mall dpu-markets dpu-road dpu-density dpu-schools dpu-attractive dpu-health dpu-random dpu-water dpu-exposed dpu-maxof dp-rad] dp-w-list
 
   ;; low income agents
   set i 0
@@ -212,9 +219,7 @@ to set-weights
     if i > 0 [set li-w-list lput w li-w-list]
     set i i + 1
   ]
-  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed ] li-w-list
-  set liu-maxof 1.5
-  set li-rad 1
+  set [ liu-suburb liu-neigbhour liu-bu liu-cbd liu-mall liu-markets liu-road liu-density liu-schools liu-attractive liu-health liu-random liu-water liu-exposed liu-maxof li-rad] li-w-list
 
   ;; middle income agents
   set i 0
@@ -223,9 +228,7 @@ to set-weights
     if i > 0 [set mi-w-list lput w mi-w-list]
     set i i + 1
   ]
-  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed ] mi-w-list
-  set miu-maxof 1.5
-  set mi-rad 3
+  set [ miu-suburb miu-neigbhour miu-bu miu-cbd miu-mall miu-markets miu-road miu-density miu-schools miu-attractive miu-health miu-random miu-water miu-exposed miu-maxof mi-rad] mi-w-list
 
   ;; high income agents
   set i 0
@@ -234,57 +237,88 @@ to set-weights
     if i > 0 [set hi-w-list lput w hi-w-list]
     set i i + 1
   ]
-  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed ] hi-w-list
-  set hiu-maxof 4
-  set hi-rad 3
+  set [ hiu-suburb hiu-neigbhour hiu-bu hiu-cbd hiu-mall hiu-markets hiu-road hiu-density hiu-schools hiu-attractive hiu-health hiu-random hiu-water hiu-exposed hiu-maxof hi-rad] hi-w-list
 
   ;; mid RED
-  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-nom-slope]
-  [7 0 0 0 0 0 8 0 5 7 0 0 0 7]
-  set mi-red-maxof 2
-  set mi-red-rad 2
-
-  ;; high RED
-  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-nom-slope]
-  [6 0 0 0 0 0 8 0 5 10 0 0 0 0]
-  set hi-red-maxof 2
-  set hi-red-rad 2
+  set i 0
+  repeat length mi-red-weight [
+    let w item i mi-red-weight
+    if i > 0 [set mi-red-w-list lput w mi-red-w-list ]
+    set i i + 1
+  ]
+  set [mi-red-suburb mi-red-neigbhour mi-red-bu mi-red-cbd mi-red-mall mi-red-markets mi-red-road mi-red-density mi-red-schools mi-red-attractive mi-red-health mi-red-random mi-red-water mi-red-exposed mi-red-maxof mi-red-rad mi-red-nom-slope] mi-red-w-list 
+  ;; print (word "MI-RED weights: " mi-red-suburb " " mi-red-neigbhour " " mi-red-bu " " mi-red-cbd " " mi-red-mall " " mi-red-markets " " mi-red-road " " mi-red-density " " mi-red-schools " " mi-red-attractive " " mi-red-health " " mi-red-random " " mi-red-water " " mi-red-exposed " " mi-red-maxof " " mi-red-rad " " mi-red-nom-slope)
+  
+    ;; high RED
+  set i 0
+  repeat length hi-red-weight [
+    let w item i hi-red-weight
+    if i > 0 [set hi-red-w-list lput w hi-red-w-list ]
+    set i i + 1
+  ]
+  set [hi-red-suburb hi-red-neigbhour hi-red-bu hi-red-cbd hi-red-mall hi-red-markets hi-red-road hi-red-density hi-red-schools hi-red-attractive hi-red-health hi-red-random hi-red-water hi-red-exposed hi-red-maxof hi-red-rad hi-red-nom-slope] hi-red-w-list
+  ;;print (word "HI-RED weights: " hi-red-suburb " " hi-red-neigbhour " " hi-red-bu " " hi-red-cbd " " hi-red-mall " " hi-red-markets " " hi-red-road " " hi-red-density " " hi-red-schools " " hi-red-attractive " " hi-red-health " " hi-red-random " " hi-red-water " " hi-red-exposed " " hi-red-maxof " " hi-red-rad " " hi-red-nom-slope)
+  
 
   file-close
 
 end
 
 to set-scenarios
-;; Standard scenario
-  (ifelse
-    scenario = "standard"
-    [ set
-      [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-      [  33334 10 43 20 27 80 17 50 ]
-      load-exclusion
-    ] ;; standard true
-    [ ifelse scenario = "SSP1" ;; standard else
-      [ set
-        [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-        [ 34768 7 23 33 37 80 17 80 ]
-        load-ssp1
-      ] ;; SSP1 true (standard false)
-      [ ifelse scenario = "SSP2" ;; SSP1 else
-        [ set
-          [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-          [ 33334 13 48 20 19 80 25 50 ]
-          load-ssp2
-        ]  ;; SSP2 true
-        [ if scenario = "SSP3" ;; SSP2 else
-          [ set
-            [ household-number percent-deprived-households percent-low-income-households percent-mid-income-households percent-high-income-households slope_coefficient critical_slope development_control]
-            [ 32073 20 60 10 10 80 35 30 ]
-            load-ssp3
-          ] ;; SSP3 true
-        ] ;; closing SSP3
-      ] ;; closing SSP2
-    ] ;; closing SSP1
-  )
+  ;; code based on https://github.com/NetLogo/models/blob/main/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogox
+  ;; https://stackoverflow.com/questions/78982817/how-to-retrieve-values-form-csv-file-in-netlogo
+  file-close-all ;; Close any open files
+  set scenarios-file-path "./data/in/scenarios.csv"
+  
+  if not file-exists? scenarios-file-path [
+    user-message "No file './data/in/scenarios.csv' exists in your home directory!"
+    stop
+  ]
+  
+  file-open scenarios-file-path
+  let data csv:from-file scenarios-file-path
+  let scenarios-headers  csv:from-row file-read-line ; store headers to find right column
+  
+  ;; Find the matching scenario row by name (first column)
+  let found? false
+  let scenario-row []
+  
+   while [ not file-at-end? ] [
+    let candidate-row csv:from-row file-read-line
+    let scenario-name item 0 candidate-row
+    
+    if scenario-name = scenario [
+      print (word "loading scenario: " scenario-name)
+      set scenario-row candidate-row
+      set found? true
+    ]
+  ]
+  
+  if not found? [
+    user-message (word "Scenario '" scenario "' not found in" scenarios-file-path)
+    stop
+  ]
+  
+  ;; Extract values from the scenario row
+  ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high, slope_coeff, critical_slope, development_control, exclusion_file
+  set household-number item 1 scenario-row  
+  ;;print (word "household number: " household-number) ;; APS: used for debugging
+  set percent-deprived-households item 2 scenario-row  
+  ;;print (word "deprived household pct: " percent-deprived-households) ;; APS: used for debugging
+  set percent-low-income-households item 3 scenario-row  
+  ;;print (word "low income household pct: " percent-low-income-households) ;; APS: used for debugging
+  set percent-mid-income-households item 4 scenario-row  
+  set percent-high-income-households item 5 scenario-row  
+  set slope_coefficient item 6 scenario-row  
+  set critical_slope item 7 scenario-row  
+  set development_control item 8 scenario-row  
+  let exclusion_file item 9 scenario-row    
+  set exclusion-file-path exclusion_file  
+  let weights_file item 10 scenario-row    
+  set weights-file-path weights_file 
+  ;;print (word "exclusion file: " exclusion-file-path) ;; APS: used for debugging
+   
+  file-close
 end
 
 
@@ -361,6 +395,7 @@ to do-calculations
   make-households
   make-developers
   set-scenarios
+  
   load-suitability
   load-informality
   load-informal-avail
@@ -415,14 +450,20 @@ to set-up
   load-slope
   load-water ;; APS: implemented this
   load-exposed ;; APS: load exposure layer
+  set-scenarios ;; APS: added scenarios-setting function based on external file
+  set-weights;; APS: added weight-setting function based on external file
+  
+  ;; initialise agents
   make-households
   make-developers
-  set-scenarios
+  
+  load-exclusion
   load-suitability
   load-informality
   load-informal-avail
   activate-development-control
-  set-weights;; APS: added weight-setting function
+  
+  
   load-nom-neighbourhood
   load-UDP
   load-ULI
@@ -436,6 +477,7 @@ to set-up
   ;;load-suburb-area APS: comented on the original
   ;;do-calculations
   reset-ticks
+  print "finished loading scenarios"
 end
 ;;...................................................
 ;;...................................................
@@ -443,8 +485,13 @@ end
 
 ;;  RUN THE MODEL
 to go
+  print (word "starting tick " ticks "/" simulation-period " ticks")
   ifelse ticks = simulation-period
-  [stop]
+  [
+    export-income-status-as-ascii
+    print (word "**finished simulation after " simulation-period " ticks**")
+    stop
+  ]
   [
     count-patches
     make-high-income-household-development
@@ -457,7 +504,8 @@ to go
     if neighbour-on? [
       update-neighbourhood]
   ]
-  export-income-status-as-asc-tick
+  if export-per-tick? [
+    export-income-status-as-asc-tick ]
   tick
 end
 
@@ -532,7 +580,11 @@ end
 
 ;;load exclusion layer
 to load-exclusion
-  set exclusion-dataset gis:load-dataset "data/in/exclusion.asc" ;; APS: renamed to include folder
+  if not file-exists? exclusion-file-path [ ;; APS: file is passed down from scenarios settings
+    user-message (word "No file "  exclusion-file-path " exists in your home directory!")
+    stop
+  ]
+  set exclusion-dataset gis:load-dataset exclusion-file-path
   gis:apply-raster exclusion-dataset exclusion
   ask patches [if exclusion = 1 [ set pcolor 99 ]]
   ;;gis:paint exclusion-dataset 0
@@ -830,7 +882,7 @@ end
 ;; APS: 11.03.2025 refactored the utility functions to take in positive values (instead of distances to them)
 to load-UDP
   ask patches [
-    set UDP ((suburb * dpu-suburb)  + (bu * dpu-bu) + ;+ (nom-neighbourhood * dpu-neigbhour)
+    set UDP ((suburb * dpu-suburb)  + (bu * dpu-bu) + (nom-neighbourhood * dpu-neigbhour) +
       (cbd * dpu-cbd) + (shoppingmall * dpu-mall) + (markets * dpu-markets) +
       (road * dpu-road) + (density * dpu-density) + (schools * dpu-schools) +
       (attractive * dpu-attractive) + (healthfacilities * dpu-health ) + ((random-float 0.1) * dpu-random) +
@@ -841,7 +893,7 @@ end
 ;; load low income households utility for each parcel
 to load-ULI
   ask patches [
-    set ULI ((suburb * liu-suburb) + (bu * liu-bu) + ;+ (nom-neighbourhood * liu-neigbhour)
+    set ULI ((suburb * liu-suburb) + (bu * liu-bu) + (nom-neighbourhood * liu-neigbhour) + 
       (cbd * liu-cbd) + (shoppingmall * liu-mall) + (markets * liu-markets) +
       (road * liu-road) + (density * liu-density) + (schools * liu-schools) +
       (attractive * liu-attractive) + (healthfacilities * liu-health ) + ((random-float 0.1) * liu-random) +
@@ -855,7 +907,7 @@ end
 ;;load mid income household utility for each patch / parcel
 to load-UMI
   ask patches [
-    set UMI ((suburb * miu-suburb) +  (bu * miu-bu) + ;+ (nom-neighbourhood * miu-neigbhour)
+    set UMI ((suburb * miu-suburb) +  (bu * miu-bu) + (nom-neighbourhood * miu-neigbhour) +
       (cbd * miu-cbd) + (shoppingmall * miu-mall) + (markets * miu-markets) +
       (road * miu-road) + (density * miu-density) + (schools * miu-schools) +
       (attractive * miu-attractive) + (healthfacilities * miu-health) + ((random-float 0.1) * miu-random) +
@@ -873,8 +925,9 @@ end
 to load-UHI
   ask patches [
     ;; APS: added a water parameter to the utility functions
-    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + 
-      (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + 
+    set UHI ((suburb * hiu-suburb) + (bu * hiu-bu) + (nom-neighbourhood * hiu-neigbhour) +
+      (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + 
+      (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + 
       (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + 
       (water * hiu-water) + (exposed * hiu-exposed))
     ;; set UHI ((suburb * hiu-suburb) + (nom-neighbourhood * hiu-neigbhour) + (bu * hiu-bu) + (cbd * hiu-cbd) + (shoppingmall * hiu-mall) + (markets * hiu-markets) + (road * hiu-road) + (density * hiu-density) + (schools * hiu-schools) + (attractive * hiu-attractive) + (healthfacilities * hiu-health) + ((random-float 0.1) * hiu-random) + (water * hiu-water) + (exposed * hiu-exposed))
@@ -963,7 +1016,7 @@ to make-deprived-household-development
       let agents-to-allocate min (list x available-first-n-UDP available-households)
 
       ;; Debug prints (optional)
-      ;;print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+      ;;print (word "Remaining ticks: " remaining-ticks " | Allocating: " agents-to-allocate " deprived households from " available-households " available.")
 
       ask n-of agents-to-allocate households with [income-status = 1 and DPH-movement = 0] [
         move-to one-of f
@@ -1009,7 +1062,7 @@ to make-low-income-household-development
       let agents-to-allocate min (list x available-first-n-ULI available-households)
 
       ;; Debug prints (optional)
-      ;;print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+      print (word "Remaining ticks: " remaining-ticks " | Allocating: " agents-to-allocate " low-income households from " available-households " available.")
 
       ask n-of agents-to-allocate households with [income-status = 2 and LIH-movement = 0] [
         move-to one-of f
@@ -1055,7 +1108,7 @@ to make-mid-income-household-development
       ;; Limit agents-to-allocate by the minimum of x, available patches, and available households
       let agents-to-allocate min (list x available-first-n-UMI available-households)
       ;; Debug prints (optional)
-      print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+      ;;print (word "Remaining ticks: " remaining-ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
       ask n-of agents-to-allocate households with [income-status = 3 and MIH-movement = 0] [
         move-to one-of f
         ask patch-here [
@@ -1100,7 +1153,7 @@ to make-high-income-household-development
       let agents-to-allocate min (list x available-first-n-UHI available-households)
 
       ;; Debug prints (optional)
-      ;;print (word remaining-ticks "/" ticks " | Allocating: " agents-to-allocate " mid-income households from " available-households " available.")
+      ;;print (word "Remaining ticks: " remaining-ticks " | Allocating: " agents-to-allocate " high-income households from " available-households " available.")
 
       ask n-of agents-to-allocate households with [income-status = 4 and HIH-movement = 0] [
         move-to one-of f
@@ -1323,17 +1376,27 @@ to reset-neighbourhood-tracking
 end
 ;; EXPORT OUTPUT
 ;; APS: 12.12.2024 new export function, seeks to correct errors
-to export-income-status-as-asc
+to export-income-status-as-ascii
   ;; Save the raster dataset as an ASCII grid
   let raster gis:patch-dataset urban-type
-  let file-name "data/out/expansion_income_2050.asc"
+  let tick-string word "0" ticks
+  let tick-length length tick-string
+  let formatted-tick ifelse-value (tick-length < 3)
+    [word "0" tick-string]
+    [tick-string]
+  let file-name (word "data/out/r" run-num "/expansion_income_t" formatted-tick ".asc")
   gis:store-dataset raster file-name
 end
 
-to export-informal-status-as-asc
+to export-informal-status-as-ascii
   ;; get the informal status of each patch
   let raster gis:patch-dataset informal-status
-  let file-name "data/out/expansion_informal_2050.asc"
+  let tick-string word "0" ticks
+  let tick-length length tick-string
+  let formatted-tick ifelse-value (tick-length < 3)
+    [word "0" tick-string]
+    [tick-string]
+  let file-name (word "data/out/r" run-num "/expansion_informal_t" formatted-tick ".asc")
   gis:store-dataset raster file-name
 end
 
@@ -1503,17 +1566,9 @@ end
 ;;.................................................................................]]></code>
   <widgets>
     <view x="329" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="0" height="684" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="false" width="776" tickCounterLabel="ticks" maxPycor="679" updateMode="0" maxPxcor="771" minPxcor="0"></view>
-    <button x="220" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="69" display="Set-up">set-up</button>
-    <button x="221" y="55" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="67" display="Go">go</button>
-    <slider x="8" step="1" y="526" max="100" width="197" display="slope_coefficient" height="50" min="1" direction="Horizontal" default="80.0" variable="slope_coefficient"></slider>
-    <slider x="6" step="1" y="581" max="100" width="200" display="critical_slope" height="50" min="1" direction="Horizontal" default="35.0" variable="critical_slope"></slider>
-    <button x="208" y="621" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="106" display="Display suitability">display_suitability</button>
-    <slider x="8" step="1" y="636" max="100" width="198" display="development_control" height="50" min="0" direction="Horizontal" default="30.0" variable="development_control"></slider>
-    <button x="207" y="576" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="107" display="Display informality">display-areas-liable-to-informality</button>
-    <slider x="7" step="100" y="11" max="200000" width="206" display="household-number" height="50" min="100" direction="Horizontal" default="32073.0" variable="household-number"></slider>
-    <slider x="9" step="1" y="139" max="100" width="193" display="percent-low-income-households" height="50" min="0" direction="Horizontal" default="60.0" variable="percent-low-income-households"></slider>
-    <slider x="8" step="1" y="249" max="100" width="192" display="percent-high-income-households" height="50" min="0" direction="Horizontal" default="10.0" variable="percent-high-income-households"></slider>
-    <slider x="9" step="1" y="194" max="100" width="191" display="percent-mid-income-households" height="50" min="0" direction="Horizontal" default="10.0" variable="percent-mid-income-households"></slider>
+    <slider x="6" step="1" y="139" max="100" width="200" display="percent-low-income-households" height="50" min="0" direction="Horizontal" default="50.0" variable="percent-low-income-households"></slider>
+    <slider x="6" step="1" y="249" max="100" width="200" display="percent-high-income-households" height="50" min="0" direction="Horizontal" default="15.0" variable="percent-high-income-households"></slider>
+    <slider x="6" step="1" y="194" max="100" width="200" display="percent-mid-income-households" height="50" min="0" direction="Horizontal" default="20.0" variable="percent-mid-income-households"></slider>
     <plot x="1761" autoPlotX="true" yMax="30.0" autoPlotY="true" yAxis="Percent" y="10" xMin="0.0" height="196" legend="false" xMax="10.0" yMin="0.0" width="230" xAxis="Years" display="Percent Informal">
       <setup></setup>
       <update></update>
@@ -1578,12 +1633,8 @@ end
     <monitor x="1610" precision="2" y="593" height="60" fontSize="11" width="118" display="Low-income contr.">((count patches with [LI-movement = 1 and informal_avail = 1]) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</monitor>
     <monitor x="1610" precision="2" y="658" height="60" fontSize="11" width="119" display="Mid-income contr.">(((count patches with [MI-movement = 1 and informal_avail = 1]) + (count patches with [pMED-movement = 1 and informal_avail = 1])) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</monitor>
     <monitor x="1611" precision="2" y="724" height="60" fontSize="11" width="120" display="High-income contr.">(((count patches with [HI-movement = 1 and informal_avail = 1]) + (count patches with [pHED-movement = 1 and informal_avail = 1])) / (1 + count patches with [ new-urban = 1 and informal_avail = 1])) * 100</monitor>
-    <slider x="8" step="10" y="306" max="1000" width="198" display="estate-developer-number" height="50" min="10" direction="Horizontal" default="10.0" variable="estate-developer-number"></slider>
-    <slider x="7" step="1" y="361" max="100" width="200" display="percent-high-end-developers" height="50" min="0" direction="Horizontal" default="30.0" variable="percent-high-end-developers"></slider>
-    <slider x="7" step="1" y="416" max="100" width="200" display="percent-mid-end-developers" height="50" min="0" direction="Horizontal" default="67.0" variable="percent-mid-end-developers"></slider>
-    <slider x="7" step="1" y="471" max="50" width="199" display="simulation-period" height="50" min="1" direction="Horizontal" default="25.0" variable="simulation-period"></slider>
     <button x="9" y="871" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="63" display="EU">experiment-urban</button>
-    <chooser x="107" y="902" height="60" variable="select-model" current="3" width="100" display="select-model">
+    <chooser x="107" y="902" height="60" variable="select-model" current="7" width="100" display="select-model">
       <choice type="string" value="airport"></choice>
       <choice type="string" value="attractive2015"></choice>
       <choice type="string" value="bu2000-dist"></choice>
@@ -1602,8 +1653,6 @@ end
       <choice type="string" value="water"></choice>
     </chooser>
     <button x="9" y="918" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="94" display="Test inputs">test-input</button>
-    <switch x="210" y="123" height="40" on="false" variable="calibrate?" width="109" display="calibrate?"></switch>
-    <button x="9" y="758" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="125" display="export income ASCII">export-income-status-as-asc</button>
     <plot x="1115" autoPlotX="true" yMax="100.0" autoPlotY="true" yAxis="households" y="10" xMin="0.0" height="240" legend="true" xMax="10.0" yMin="0.0" width="388" xAxis="years" display="Agents left per class">
       <setup></setup>
       <update></update>
@@ -1624,8 +1673,6 @@ end
         <update>plot (count households with [(income-status = 4) and (HIH-movement = 0)] )</update>
       </pen>
     </plot>
-    <button x="9" y="803" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="125" display="export informal ASCII">export-informal-status-as-asc </button>
-    <slider x="9" step="1" y="84" max="100" width="196" display="percent-deprived-households" height="50" min="0" direction="Horizontal" default="20.0" variable="percent-deprived-households"></slider>
     <monitor x="1121" precision="17" y="255" height="60" fontSize="11" width="100" display="HH deprived">count households with [income-status = 4]</monitor>
     <monitor x="1122" precision="17" y="320" height="60" fontSize="11" width="100" display="HH LI">count households with [income-status = 1]</monitor>
     <monitor x="1122" precision="17" y="386" height="60" fontSize="11" width="100" display="HH MI">count households with [income-status = 2]</monitor>
@@ -1635,9 +1682,6 @@ end
     <monitor x="1447" precision="2" y="255" height="60" fontSize="11" width="100" display="MI HH left">(count households with [(income-status = 3) and (MIH-movement = 0)] )</monitor>
     <monitor x="1555" precision="2" y="212" height="60" fontSize="11" width="100" display="HI HH left">(count households with [(income-status = 4) and (HIH-movement = 0)] )</monitor>
     <monitor x="1229" precision="2" y="255" height="60" fontSize="11" width="100" display="DP HH left">(count households with [(income-status = 1) and (DPH-movement = 0)] )</monitor>
-    <button x="208" y="666" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="106" display="Display UDP">display-UDP</button>
-    <switch x="210" y="168" height="40" on="true" variable="RED-on?" width="103" display="RED-on?"></switch>
-    <switch x="210" y="213" height="40" on="true" variable="neighbour-on?" width="107" display="neighbour-on?"></switch>
     <monitor x="1410" precision="17" y="135" height="60" fontSize="11" width="100" display="Avail. patches">count total-avail-patches</monitor>
     <monitor x="1231" precision="17" y="320" height="60" fontSize="11" width="100" display="first-n-UDP">count patches with [first-n-UDP = 1]</monitor>
     <monitor x="1341" precision="17" y="320" height="60" fontSize="11" width="100" display="first-n-ULI">count patches with [first-n-ULI = 1]</monitor>
@@ -1647,14 +1691,35 @@ end
     <monitor x="1449" precision="17" y="385" height="60" fontSize="11" width="100" display="av-UMI">available-first-n-UMI</monitor>
     <monitor x="1557" precision="17" y="342" height="60" fontSize="11" width="100" display="av-UHI">available-first-n-UHI</monitor>
     <monitor x="1236" precision="17" y="385" height="60" fontSize="11" width="100" display="av-UDP">available-first-n-UDP</monitor>
-    <button x="219" actionKey="1" y="265" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="DC">do-calculations</button>
-    <input x="218" multiline="false" y="310" height="60" variable="run-num" type="string" width="100">050</input>
-    <chooser x="218" y="378" height="60" variable="scenario" current="3" width="100" display="scenario">
-      <choice type="string" value="standard"></choice>
-      <choice type="string" value="SSP1"></choice>
-      <choice type="string" value="SSP2"></choice>
-      <choice type="string" value="SSP3"></choice>
+    <slider x="6" step="1" y="472" max="100" width="200" display="slope_coefficient" height="50" min="1" direction="Horizontal" default="80.0" variable="slope_coefficient"></slider>
+    <slider x="6" step="1" y="528" max="100" width="200" display="critical_slope" height="50" min="1" direction="Horizontal" default="17.0" variable="critical_slope"></slider>
+    <slider x="6" step="1" y="582" max="100" width="200" display="development_control" height="50" min="0" direction="Horizontal" default="60.0" variable="development_control"></slider>
+    <button x="6" y="636" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="92" display="export income">export-income-status-as-ascii</button>
+    <button x="6" y="681" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="91" display="Display informality">display-areas-liable-to-informality</button>
+    <button x="6" y="726" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="88" display="Display suitability">display_suitability</button>
+    <button x="6" y="771" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="90" display="Display UDP">display-UDP</button>
+    <slider x="6" step="10" y="306" max="1000" width="200" display="estate-developer-number" height="50" min="10" direction="Horizontal" default="10.0" variable="estate-developer-number"></slider>
+    <slider x="6" step="1" y="361" max="100" width="200" display="percent-high-end-developers" height="50" min="0" direction="Horizontal" default="30.0" variable="percent-high-end-developers"></slider>
+    <slider x="6" step="1" y="416" max="100" width="200" display="percent-mid-end-developers" height="50" min="0" direction="Horizontal" default="67.0" variable="percent-mid-end-developers"></slider>
+    <slider x="9" step="1" y="84" max="100" width="197" display="percent-deprived-households" height="50" min="0" direction="Horizontal" default="15.0" variable="percent-deprived-households"></slider>
+    <slider x="7" step="100" y="11" max="200000" width="199" display="household-number" height="50" min="100" direction="Horizontal" default="35953.0" variable="household-number"></slider>
+    <button x="104" y="636" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="100" display="export informal">export-informal-status-as-ascii</button>
+    <switch x="104" y="681" height="40" on="false" variable="track-neighbourhood-changes?" width="100" display="track-neighbourhood-changes?"></switch>
+    <button x="214" y="10" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="69" display="Set-up">set-up</button>
+    <button x="214" actionKey="1" y="681" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="DC">do-calculations</button>
+    <input x="214" multiline="false" y="255" height="60" variable="simulation-period" type="number" width="111">25.0</input>
+    <chooser x="214" y="390" height="60" variable="scenario" current="0" width="111" display="scenario">
+      <choice type="string" value="S1"></choice>
+      <choice type="string" value="S2"></choice>
+      <choice type="string" value="S3"></choice>
+      <choice type="string" value="S4"></choice>
     </chooser>
+    <input x="214" multiline="false" y="322" height="60" variable="run-num" type="string" width="111">066</input>
+    <switch x="214" y="213" height="40" on="true" variable="neighbour-on?" width="111" display="neighbour-on?"></switch>
+    <switch x="214" y="168" height="40" on="true" variable="RED-on?" width="111" display="RED-on?"></switch>
+    <switch x="214" y="123" height="40" on="false" variable="calibrate?" width="111" display="calibrate?"></switch>
+    <button x="214" y="55" height="40" disableUntilTicks="true" forever="true" kind="Observer" width="67" display="Go">go</button>
+    <switch x="214" y="637" height="40" on="false" variable="export-per-tick?" width="112" display="export-per-tick?"></switch>
   </widgets>
   <info><![CDATA[## WHAT IS IT?
 
