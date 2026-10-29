@@ -1,12 +1,14 @@
-# TI-City-Model.v1.5
+# TA-City-Model
 
 
 ### What is it?
-The repository contains an extension for the TI-City Model.
-The original model was developed by Dr Felix Agyemang and simulated future residential development in an African city (Accra).
-It is being extended by Dr Alexandre Pereira Santos for the simulation of future urban development in megacities in Asia, especially Manila, Mumbai, and Jakarta. See the [changelog](https://gitlab.lrz.de/0000000001364670/ti-city-model/-/blob/main/docs/changelog.md) for all modifications.
+The **TA-City model ** is a new version for the TI-City Model by [Dr Felix Agyemang](mailto:felix.agyemang@manchester.ac.uk). <br>
+Here we extend it to TA-City.<br>
+TI-City publication (2023): DOI [10.1177/23998083211068843](https://journals.sagepub.com/doi/10.1177/23998083211068843)
+TA-City model publication (2026): DOI [TBD]()
+This work is developed by [Dr Alexandre Pereira Santos](mailto:asantos@uni-bonn.de) for the simulation of future urban development in megacities in Asia, especially Manila, Mumbai, and Jakarta. See the [changelog](https://gitlab.lrz.de/0000000001364670/ti-city-model/-/blob/main/docs/changelog.md) for all modifications.
 
-The model, which is named TI-City, combines agent-based and cellular automata modelling techniques to predict the geospatial behaviour of key urban development actors, including households, real estate developers and government.
+The model combines agent-based and cellular automata modelling techniques to predict the geospatial behaviour of key urban development actors, including households, real estate developers and government.
 
 The model is implemented in NetLogo programming platform and the input preparation scripts in Python.
 This repository loosely follows the structure from CookieCutter Data science and has the following segments:
@@ -19,7 +21,7 @@ This repository loosely follows the structure from CookieCutter Data science and
 
 ### How it works
 
-TI-City has several key parameters. This includes:
+TA-City has several key parameters. This includes:
  
 1. A development control parameter, which accounts for more stringent or liberal regulatory contexts (i.e., control how much informality is permitted);
 2. Projected market demand for plots from four household agent types;
@@ -63,13 +65,13 @@ The spatial resolution of the model as applied to Accra is 200m. This is about 5
 To adapt the model to any other city, consider the spatial resolution of the data and the extent to which is enlarges or reduces actual sizes of land parcels. Like the case of Accra, this could influence the number of households and real estate developers to simulate.
 
 
-#### Key for income status predictions:
+#### Key for socioeconomic profile predictions:
 0 = undeveloped lands;
-1 = Low income;
-2 = Middle income;
-3 = High income;
-4 = seed year built-up.
-
+1 = deprived socioeconomic profile
+2 = low socioeconomic profile
+3 = middle socioeconomic profile
+4 = high socioeconomic profile
+5 = seed year built-up.
 
 #### Key for legal status predictions:
 0 = undeveloped lands;
@@ -84,15 +86,10 @@ Consider adjusting some of the parameters. For instance, what happens with stron
 
 Experiment with data from a different city.
 
-
 ### Extending the model
 
-
-
-
-### Related model
-
-SLEUTH
+### Related models
+- SLEUTH
 
 
 ### How to cite it
@@ -112,4 +109,4 @@ Zhou, Y. (2015). Urban growth model in Netlogo. Available at: http://www.gisagen
 ### Contact
 
 For the original model: Dr Felix S. K Agyemang; School of Geographical Sciences; Unversity of Bristol, felix.agyemang@manchester.ac.uk, https://research-information.bris.ac.uk/en/persons/felix-s-k-agyemang
-For the extension: Dr Alexandre Pereira Santos; Department of Geography, Ludwig-Maximilians-Universität in Munich, [alexandre.santos@lmu.de](mailto:alexandre.santos@lmu.de).
+For the extension: Dr Alexandre Pereira Santos; Chair in Development of Urban and Rural Regions, Institute of Geodesy and Geoinformation, University of Bonn, [asantos@uni-bonn.de](mailto:asantos@uni-bonn.de).
