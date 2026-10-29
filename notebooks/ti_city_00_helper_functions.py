@@ -88,6 +88,7 @@ __all__: List[str] = [
 
     # Distance/utility functions
     'get_distance_raster',
+    'get_distance_to_roads_raster',
     'calculate_density',
     'calculate_utility',
     'utility_from_distance',
@@ -396,6 +397,64 @@ def get_distance_raster(gdf: 'gpd.GeoDataFrame', ref_raster_path: str) -> Tuple[
 
     # two output options, one with all the rasters, the other only with the distance ones
     return major_raster, full_raster, distance_raster, distance_raster_normalized
+    #return distance_raster, distance_raster_normalized
+
+def get_distance_to_roads_raster(gdf: 'gpd.GeoDataFrame', ref_raster_path: str, major=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
+    # Filter major elments 
+    major_gdf = gdf[gdf['major'] == 1]
+
+    # Get the geometry of the major roads
+    major_geom = [shapes for shapes in major_gdf.geometry]
+
+    with rasterio.open(ref_raster_path, 'r') as ref_raster:    
+        # Rasterize the major roads, script from https://pygis.io/docs/e_raster_rasterize.html
+        major_raster = features.rasterize(major_geom,
+                                        out_shape = ref_raster.shape,
+                                        fill = 0,
+                                        out = None,
+                                        transform = ref_raster.transform,
+                                        all_touched = True,
+                                        default_value = 1,
+                                        dtype = None)
+
+        # Get the geometry of the all roads
+        full_geom = [shapes for shapes in gdf.geometry]
+
+        full_raster = features.rasterize(full_geom,
+                                        out_shape = ref_raster.shape,
+                                        fill = 0,
+                                        out = None,
+                                        transform = ref_raster.transform,
+                                        all_touched = True,
+                                        default_value = 1,
+                                        dtype = None)
+
+    # Invert the raster: roads (value == 1) become 0, non-roads become 1
+    if major:
+        inverted_raster = np.where(major_raster == 1, 0, 1)
+    else:
+        inverted_raster = np.where(full_raster == 1, 0, 1)
+
+    # Calculate the distance to the nearest road for each cell
+    distance_raster = distance_transform_edt(inverted_raster)
+    # Assuming the raster's resolution is in meters, the distance_to_roads array now contains the distance in meters to the nearest road for each cell
+
+    distance_raster = np.asarray(distance_raster, dtype=float)
+
+    min_val = np.nanmin(distance_raster, axis=None)
+    max_val = np.nanmax(distance_raster, axis=None)
+
+    if max_val == min_val:
+        distance_raster_normalized = np.zeros_like(distance_raster)
+        utility_raster = np.zeros_like(distance_raster)
+    else:
+        # normalize the raster by the min-max method
+        distance_raster_normalized = (distance_raster - min_val) / (max_val - min_val)
+        utility_raster = utility_from_distance(distance_raster_normalized, density_boolean=False)
+    
+    # two output options, one with all the rasters, the other only with the distance ones
+    return major_raster, full_raster, distance_raster, distance_raster_normalized, utility_raster
     #return distance_raster, distance_raster_normalized
 
 
@@ -1364,6 +1423,7 @@ def export_files(
     distance_raster: Optional[np.ndarray] = None,
     distance_normal: Optional[np.ndarray] = None,
     utility_raster: Optional[np.ndarray] = None,
+    ref_raster_path=Path('./'),
     out_path: Path = Path('./'),
     file_name: str = 'out_file'
 ) -> None:
@@ -1405,7 +1465,10 @@ def export_files(
                 return
             gdf_url = out_path/gdf_vector_file
             gdf.to_file(gdf_url, driver='ESRI Shapefile')
-
+    except Exception as e:
+        print(f'Error exporting files:,{e},\n Output path: {gdf_url}')
+    
+    try:
         if major_raster is not None:
             major_raster_file = file_name + '_major_150m.tif'
             major_url = out_path/major_raster_file
@@ -1423,7 +1486,9 @@ def export_files(
             #                    ref_raster_path=ref_raster_path,
             #                    raster_data_type=rasterio.int16)
             """
-
+    except Exception as e:
+        print(f'Error exporting files:,{e},\n Output path: {major_url}')
+    try:
         if full_raster is not None:
             full_raster_file = file_name + '_all_150m.tif'
             full_url = out_path/full_raster_file
@@ -1439,7 +1504,9 @@ def export_files(
             #                    ref_raster_path=ref_raster_path,
             #                    raster_data_type=rasterio.int16)
             """
-
+    except Exception as e:
+        print(f'Error exporting files:,{e},\n Output path: {full_url}')
+    try:
         if distance_raster is not None:
             distance_raster_file = file_name + '_distance_150m.tif'
             distance_url = out_path/distance_raster_file
@@ -1455,7 +1522,9 @@ def export_files(
             #                    ref_raster_path=ref_raster_path,
             #                    raster_data_type=rasterio.float32)
             """
-
+    except Exception as e:
+        print(f'Error exporting files:,{e},\n Output path: {distance_url}')
+    try:
         if distance_normal is not None:
             normalized_raster_file = file_name + '_distance_normal_150m.tif'
             normalized_url = out_path / normalized_raster_file
@@ -1470,6 +1539,9 @@ def export_files(
             #                    ref_raster_path=ref_raster_path,
             #                    raster_data_type=rasterio.float32)
             """
+    except Exception as e:
+        print(f'Error exporting files:,{e},\n Output path: {normalized_url}')
+    try:
         if utility_raster is not None:
             utility_raster_file = file_name + '_utility_150m.tif'
             utility_url = out_path/utility_raster_file
@@ -1479,4 +1551,5 @@ def export_files(
                         data_type=rasterio.float32,
                         ref_raster_path=ref_raster_path)
     except Exception as e:
-        print('Error exporting files:',e)
+        print(f'Error exporting files:,{e},\n Output path: {utility_url}')
+    

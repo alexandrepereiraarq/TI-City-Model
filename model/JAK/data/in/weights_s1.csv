@@ -1,0 +1,12 @@
+﻿agent,suburban,neighbour,bu,cbd,mall,markets,road,density,schools,attractive,health,random,water,exposed,maxof,rad,nom-slope
+dp,7,9,3,3,0,7,3,9,7,0,7,3,0,1,2,2,0
+li,1,9,9,9,7,7,7,7,7,0,7,3,0,-1,2,2,0
+mi,5,5,5,3,5,5,7,3,3,7,5,3,0,-3,2,2,0
+hi,1,7,9,9,6,1,10,0,3,10,3,3,7,2,2,3,0
+mi_red,7,0,0,0,0,0,10,0,5,7,0,3,0,-3,2,3,7
+hi_red,6,0,0,0,0,0,10,0,5,10,0,3,7,2,2,3,0
+,,,,,,,,,,,,,,,,,
+# Usage: This file defines the utility weights for different agent types in the TI-City model.,,,,,,,,,,,,,,,,,
+"# Each row corresponds to an agent type (dp=deprived, li=low-income, mi=middle-income, hi=high-income, mi_red=mid real estate developer, hi_red=high real estate developer).",,,,,,,,,,,,,,,,,
+"# Columns represent factors influencing location decisions: suburban, neighbour, bu (built-up), cbd, mall, markets, road, density, schools, attractive, health, random, water, exposed, nom-slope.",,,,,,,,,,,,,,,,,
+# Higher values indicate stronger preference for that factor. Zero values mean the factor is ignored for that agent type.,,,,,,,,,,,,,,,,,
