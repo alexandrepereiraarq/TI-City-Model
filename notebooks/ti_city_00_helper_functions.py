@@ -21,6 +21,8 @@ import os
 import shutil
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, Union
+import hashlib
+from datetime import date
 
 import numpy as np
 import rasterio
@@ -37,6 +39,7 @@ from shapely.geometry import MultiLineString, LineString, MultiPolygon, Point, M
 # GeoPandas is used extensively but we'll use string literals in type hints
 # to avoid requiring it in this module
 import geopandas as gpd
+import csv
 
 # For plotting functions (kept minimal since notebooks handle most plotting)
 import matplotlib.pyplot as plt
@@ -111,7 +114,12 @@ __all__: List[str] = [
     'plot_continuous_raster',
     'plot_unique_value_raster',
     'plot_compare_rasters',
-    'plot_many_rasters'
+    'plot_many_rasters',
+    
+    # Model calibration helper functions
+    'file_hash',
+    'create_folders'
+
 ]
 
 
@@ -1552,4 +1560,122 @@ def export_files(
                         ref_raster_path=ref_raster_path)
     except Exception as e:
         print(f'Error exporting files:,{e},\n Output path: {utility_url}')
+
+def file_hash(path: Path) -> str:
+    """Short hash of a file so the manifest pins the exact inputs used."""
+    if not path.exists():
+        return "n/a"
+    return hashlib.md5(path.read_bytes()).hexdigest()[:8]
+
+
+def create_folders(
+        seeds_list: list = [11,22,33], 
+        runs_list: list = [], 
+        first_run: str = 'R100', 
+        run_type: str = "--dry-run", # or "--create"
+        root_folder_path: Path = Path("./"),
+        inputs: str = "all-roads layer + bu-proximity year 2000 (corrected vintage)",
+        code_version: str = "v41",
+        model_mode: str = "calibrate?, RED-on?, neighbour-on?",
+        hh_number: str = "",
+        status: str = "pending"
+        ) -> None:
+
+    docs_folder_path = root_folder_path / "docs"
+    outputs_folder_path = root_folder_path / f"model/{case_city}/data/out"
+    inputs_folder_path = root_folder_path / f"model/{case_city}/data/in"
+
+    if run_type == "--root":
+        print("repo root (default: current dir)")
+        help="repo root (default: current dir)"
+
+    last_run = first_run + len(runs_list) - 1
+    manifest_path = docs_folder_path / f"{case_city}_TA-model_manifest_R{first_run}_{last_run}.csv"
+    if not manifest_path.exists():
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.touch()
+
+    rows = []
+    folders = []
+    for run in runs_list:
+        rnum = first_run + run["offset"]
+        rname = f"R{rnum}"
+        for seed in seeds_list:
+            folder = outputs_folder_path / rname / f"seed{seed}"
+            folders.append(folder)
+            rows.append(
+                {
+                    "run": rname,
+                    "scenario": run["scenario"],
+                    "run_seed": seed,
+                    "purpose": run["purpose"],
+                    "parameter_variation": run["variation"],
+                    "output_folder": str(folder.relative_to(outputs_folder_path)),
+                    "code_version": code_version,
+                    "inputs": inputs,
+                    "mode_switches": model_mode,
+                    "household_number": hh_number,
+                    "scenarios_csv_md5": file_hash(inputs_folder_path / f"scenarios.csv"),
+                    "weights_file_md5": file_hash(
+                        inputs_folder_path / f"weights_{run['scenario']}.csv"
+                    ),
+                    "date_created": date.today().isoformat(),
+                    "status": status,
+                }
+            )
+
+    # ---- report plan ----
+    print(f"Batch: {len(runs_list)} runs x {len(seeds_list)} seeds = {len(rows)} BehaviorSpace runs")
+    for run in runs_list:
+        print(f"  R{first_run + run['offset']:>3}  {run['scenario']:<12} {run['purpose']}")
     
+    if run_type == "dry-run":
+        action="store_true"
+        for folder in folders:
+            print(folder)
+        print(f"\nManifest would be written to: {manifest_path}")
+        print("\n(dry run — nothing created)")
+        return
+    elif run_type == "create":
+    # ---- create folders ----
+        for row in rows:
+            folder = outputs_folder_path / row["run"] / f"seed{row['run_seed']}"
+            folder.mkdir(parents=True, exist_ok=True)
+
+            # Create "in" subfolder
+            in_folder = folder / "in"
+            in_folder.mkdir(parents=True, exist_ok=True)
+
+            # copy .prj files to each folder
+            prj_file_list = ['expansion_income_t000.prj', 'expansion_income_t005.prj',
+                            'expansion_income_t010.prj', 'expansion_income_t015.prj',
+                            'expansion_income_t020.prj', 'expansion_income_t025.prj']
+            for prj_file in prj_file_list:
+                prj_file_path = outputs_folder_path / f"{prj_file}"
+                if prj_file_path.exists():
+                    shutil.copy(prj_file_path, folder)
+                else:
+                    print(f"Warning: .prj file not found: {prj_file_path}")
+
+            # Copy scenario and weights files to in folder
+            scenario_file = inputs_folder_path / f"scenarios.csv"
+            weights_file = inputs_folder_path / f"weights_{row['scenario']}.csv"
+
+            if scenario_file.exists():
+                shutil.copy(scenario_file, in_folder)
+            else:
+                print(f"Warning: scenario file not found: {scenario_file}")
+
+            if weights_file.exists():
+                shutil.copy(weights_file, in_folder)
+            else:
+                print(f"Warning: weights file not found: {weights_file}")
+
+    print(f"\nCreated/verified {len(rows)} folders under {root_folder_path}")
+
+    # ---- write manifest CSV ----
+    with manifest_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"Wrote manifest: {manifest_path}")
