@@ -1,0 +1,41 @@
+
+<experiments>
+  <experiment name="TA_city_calibration_R125-128" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="100">
+    <setup>set-up</setup>
+    <go>go</go>
+    <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
+    <metrics>
+      <metric>behaviorspace-run-number</metric>
+      <metric>scenario</metric>
+      <metric>run-seed</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="run-seed">
+        <value value="11"></value>
+        <value value="22"></value>
+        <value value="33"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="scenario">
+        <value value="&quot;s0&quot;"></value>
+        <value value="&quot;s_random&quot;"></value>
+        <value value="&quot;s_edge&quot;"></value>
+        <value value="&quot;s_roadbound&quot;"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="calibrate?">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="RED-on?">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="neighbour-on?">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="track-neighbourhood-changes?">
+        <value value="false"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="export-per-tick?">
+        <value value="false"></value>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+</experiments>
