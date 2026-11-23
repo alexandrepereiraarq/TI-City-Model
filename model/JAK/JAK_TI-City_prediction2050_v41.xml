@@ -293,15 +293,24 @@ to set-scenarios
       print (word "... loading scenario: " scenario)
       set scenario-row candidate-row
       set found? true
+      ;; check if file has the expected column range
+      if length scenario-row != 14 [ 
+        error (word "scenarios.csv row for '" scenario "' has " length scenario-row " columns, expected 14") 
+  ]
     ]
   ]
     
+  ;; Checking if file exists 
   if not found? [
     error (word "Scenario '" scenario "' not found in " scenarios-file-path)
-  ]
+  ]  
+  
   
   ;; Extract values from the scenario row
-  ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high, slope_coeff, critical_slope, development_control, exclusion_file
+  ;; CSV format: name, household-number, percent-deprived, percent-low, percent-mid, percent-high,
+  ;;             slope_coeff, critical_slope, development_control, estate-developer-number,
+  ;;             percent-high-end-developers, run-num, exclusion_file, weights_file
+  
   set household-number item 1 scenario-row  
   ;;print (word "household number: " household-number) ;; APS: used for debugging
   set percent-deprived-households item 2 scenario-row  
@@ -312,10 +321,16 @@ to set-scenarios
   set percent-high-income-households item 5 scenario-row  
   set slope_coefficient item 6 scenario-row  
   set critical_slope item 7 scenario-row  
-  set development_control item 8 scenario-row  
-  let exclusion_file item 9 scenario-row    
+  set development_control item 8 scenario-row
+  set estate-developer-number item 9 scenario-row
+  set percent-high-end-developers item 10 scenario-row
+  set percent-mid-end-developers (100 - percent-high-end-developers)
+  ifelse (item 11 scenario-row != "")
+    [ set run-num item 11 scenario-row ]
+    [ print (word "... no run_id in scenarios.csv for '" scenario "' — keeping GUI value: run-num " run-num) ]
+  let exclusion_file item 12 scenario-row    
   set exclusion-file-path exclusion_file  
-  let weights_file item 10 scenario-row    
+  let weights_file item 13 scenario-row    
   set weights-file-path weights_file 
   ;;print (word "exclusion file: " exclusion-file-path) ;; APS: used for debugging
   
@@ -1490,8 +1505,15 @@ to export-informal-status-as-ascii
   let formatted-tick ifelse-value (tick-length < 3)
     [word "0" tick-string]
     [tick-string]
-  let file-name (word "data/out/r" run-num "/expansion_informal_t" formatted-tick ".asc")
-  gis:store-dataset raster file-name
+  (ifelse calibrate? = true 
+  [
+      let file-name (word "data/out/r" run-num "/seed" run-seed "/expansion_informal_t" formatted-tick ".asc")
+    gis:store-dataset raster file-name]
+    [
+      let file-name (word "data/out/r" run-num "/expansion_informal_t" formatted-tick ".asc")
+    gis:store-dataset raster file-name]
+  )
+  ;;gis:store-dataset raster file-name
 end
 
 ;; APS: created a function to export the grid every tick
@@ -1788,11 +1810,14 @@ end
     <button x="213" y="490" height="50" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="EU">experiment-urban</button>
     <button x="270" actionKey="1" y="490" height="50" disableUntilTicks="false" forever="false" kind="Observer" width="55" display="DC">do-calculations</button>
     <input x="213" multiline="false" y="355" height="60" variable="run-num" type="string" width="112">122</input>
-    <chooser x="213" y="425" height="60" variable="scenario" current="0" width="112" display="scenario">
-      <choice type="string" value="S0"></choice>
-      <choice type="string" value="S1"></choice>
-      <choice type="string" value="S2"></choice>
-      <choice type="string" value="S3"></choice>
+    <chooser x="213" y="425" height="60" variable="scenario" current="4" width="112" display="scenario">
+      <choice type="string" value="s0"></choice>
+      <choice type="string" value="s1"></choice>
+      <choice type="string" value="s2"></choice>
+      <choice type="string" value="s3"></choice>
+      <choice type="string" value="s_random"></choice>
+      <choice type="string" value="s_edge"></choice>
+      <choice type="string" value="s_roadbound"></choice>
     </chooser>
     <input x="213" multiline="false" y="287" height="60" variable="run-seed" type="number" width="113">11.0</input>
   </widgets>
@@ -2750,4 +2775,51 @@ Profile: https://research-information.bris.ac.uk/en/persons/felix-s-k-agyemang]]
     </shape>
   </linkShapes>
   <previewCommands>setup repeat 75 [ go ]</previewCommands>
+  <experiments>
+    <experiment name="TA_city_calibration_R125-128" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="100">
+      <setup>set-up</setup>
+      <go>go</go>
+      <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
+      <metrics>
+        <metric>behaviorspace-run-number</metric>
+        <metric>scenario</metric>
+        <metric>run-seed</metric>
+        <metric>(count patches with [new-urban = 1])</metric>
+        <metric>(household-number - count patches with [new-urban = 1])</metric>
+        <metric>(sum [estate-size] of developers with [class = 2 and MED-movement = 1]) - count patches with [pMED-movement = 1]</metric>
+        <metric>(sum [estate-size] of developers with [class = 3 and HED-movement = 1]) - count patches with [pHED-movement = 1]</metric>
+        <metric>count patches with [pMED-movement = 1]</metric>
+        <metric>count patches with [pHED-movement = 1]</metric>
+        <metric>sum [estate-size] of developers with [(class = 2 and MED-movement = 0) or (class = 3 and HED-movement = 0)]</metric>
+      </metrics>
+      <constants>
+        <enumeratedValueSet variable="run-seed">
+          <value value="11"></value>
+          <value value="22"></value>
+          <value value="33"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="scenario">
+          <value value="&quot;s0&quot;"></value>
+          <value value="&quot;s_random&quot;"></value>
+          <value value="&quot;s_edge&quot;"></value>
+          <value value="&quot;s_roadbound&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="calibrate?">
+          <value value="true"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="RED-on?">
+          <value value="true"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="neighbour-on?">
+          <value value="true"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="track-neighbourhood-changes?">
+          <value value="false"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="export-per-tick?">
+          <value value="false"></value>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+  </experiments>
 </model>
