@@ -1,11 +1,14 @@
-name,household-number,percent-deprived-households,percent-low-income-households,percent-mid-income-households,percent-high-income-households,slope_coefficient,critical_slope,development_control,exclusion-file-path,weights-file-path
-S0,28866,10,43,20,27,80,17,60,data/in/exclusion_s0.asc,data/in/weights_s0.csv
-S1,28866,10,43,20,27,80,17,60,data/in/exclusion_s1.asc,data/in/weights_s1.csv
-S2,28866,10,43,20,27,80,17,80,data/in/exclusion_s2.asc,data/in/weights_s2.csv
-S3,28866,10,43,20,27,80,17,60,data/in/exclusion_s3.asc,data/in/weights_s3.csv
-,,,,,,,,,,
-,,,,,,,,,,
-# Usage: This file defines scenario configurations for the TI-City model simulations.,,,,,,,,,,
-"# Each row represents a scenario (e.g. S0 = calibration, S1=Business as Usual, S2 = Sustainable Development, S3 = Increased Fragmentation)",,,,,,,,,,
-# Columns include: household-number, percent-deprived/low/mid/high-income-households, slope_coefficient, critical_slope, development_control, and exclusion-file-path (ASC file for spatial constraints).,,,,,
-# The model loads the scenario matching the 'scenario' global variable (set in the model GUI) at runtime.,,,,,,,,,,
+name,household-number,percent-deprived-households,percent-low-income-households,percent-mid-income-households,percent-high-income-households,slope_coefficient,critical_slope,development_control,estate-developer-number,percent-high-end-developers,run-num,exclusion-file-path,weights-file-path
+s0,29656,10,43,20,27,80,17,60,200,30,125,data/in/exclusion_s0.asc,data/in/weights_s0.csv
+s_random,29656,10,43,20,27,80,17,60,200,30,126,data/in/exclusion_s_random.asc,data/in/weights_s_random.csv
+s_edge,29656,10,43,20,27,80,17,60,200,30,127,data/in/exclusion_s_edge.asc,data/in/weights_s_edge.csv
+s_roadbound,29656,10,43,20,27,80,17,60,200,30,128,data/in/exclusion_s_roadbound.asc,data/in/weights_s_roadbound.csv
+s1,29656,10,43,20,27,80,17,60,200,30,,data/in/exclusion_s1.asc,data/in/weights_s1.csv
+s2,29656,10,43,20,27,80,17,80,200,30,,data/in/exclusion_s2.asc,data/in/weights_s2.csv
+s3,29656,10,43,20,27,80,17,60,200,30,,data/in/exclusion_s3.asc,data/in/weights_s3.csv
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+# Usage: This file defines scenario configurations for the TI-City model simulations.,,,,,,,,,,,,,
+"# Each row represents a scenario (e.g. S0 = calibration, S1=Business as Usual, S2 = Sustainable Development, S3 = Increased Fragmentation)",,,,,,,,,,,,,
+# Columns include: household-number, percent-deprived/low/mid/high-income-households, slope_coefficient, critical_slope, development_control, and exclusion-file-path (ASC file for spatial constraints).,,,,,,,,
+# The model loads the scenario matching the 'scenario' global variable (set in the model GUI) at runtime.,,,,,,,,,,,,,
