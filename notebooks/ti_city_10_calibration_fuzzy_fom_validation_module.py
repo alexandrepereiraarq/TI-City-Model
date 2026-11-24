@@ -759,6 +759,7 @@ def load_ascii_files(
 
     results_dict = {}
     for scenario in scenarios:
+        results_dict[scenario] = {}
         if seeds_list is None:
             # without seeds: scenario > {tick: array}           
             path = results_folder / scenario_path[scenario]
@@ -787,14 +788,13 @@ def load_ascii_files(
                     f"OS error listing files in {path}: {e}"
                 ) from e
             ascii_files = natsort.natsorted(ascii_files)
+            
             # Handle empty directory
             if not ascii_files:
                 if not silent:
                     print(f"Warning: No .asc files found in {path}")
-                results_dict[scenario] = {}
                 continue
             
-            results_dict[scenario] = {}
             if load_mode == 'final':
                 # Load only the last tick
                 if not silent:
@@ -857,6 +857,7 @@ def load_ascii_files(
         else:
             # with seeds: scenario > seed > {tick: array}            
             for seed in seeds_list:
+                results_dict[scenario][seed] = {}
                 path = results_folder / scenario_path[scenario] / seed
                 # Validate path exists
                 if not path.exists():
@@ -886,16 +887,13 @@ def load_ascii_files(
                     ) from e
 
                 ascii_files = natsort.natsorted(ascii_files)
-
+                
                 # Handle empty directory
                 if not ascii_files:
                     if not silent:
                         print(f"Warning: No .asc files found in {path}")
-                    results_dict[scenario][seed] = {}
+                    
                     continue
-
-                results_dict[scenario][seed] = {}
-
                 if load_mode == 'final':
                     if not silent:
                         print(f'Loading only the final tick for scenario: {scenario} and seed: {seed}')
