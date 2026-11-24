@@ -1,7 +1,7 @@
 "BehaviorSpace results (NetLogo 7.0.3)","Lists version 2.0"
 "JAK_TI-City_prediction2050_v41.nlogox"
 "TA_city_calibration_R125-128"
-"11/23/2026 12:44:22:113 +0100"
+"11/23/2026 19:13:06:071 +0100"
 "min-pxcor","max-pxcor","min-pycor","max-pycor"
 "0","771","0","679"
 "[reporter]","[run number]","run-seed","scenario","calibrate?","RED-on?","neighbour-on?","track-neighbourhood-changes?","export-per-tick?","[step]"
