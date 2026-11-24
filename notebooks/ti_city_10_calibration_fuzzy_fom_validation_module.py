@@ -519,7 +519,7 @@ def evaluate_scenario_fom(
                 keys = sorted_keys
             else:
                 sorted_keys = natsort.natsorted(series.keys())
-                keys = series #sorted_keys[-1:]
+                keys = sorted_keys[-1:] # last tick series 
             for key in keys:
                 raster = series[key]
                 if raster.shape != obs.shape:
