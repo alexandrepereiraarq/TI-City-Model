@@ -1,5 +1,18 @@
 """
-ti_city_08_fuzzy_fom_validation_module.py
+@author: Alexandre Pereira Santos <br>
+alexandre.santos(at)lmu.de
+## Tasks
+- This is a collection of tested and working functions for raster and vector analysis.
+- Run this code at your own risk.
+
+## Prerequisites
+- Many functions rely on rasterio.
+- Calling notebooks should import: geopandas, matplotlib, osmnx, ee
+"""
+
+
+"""
+ti_city_10_fuzzy_fom_validation_module.py
 =========================================
 Validation module for the TI-City / TA City agent-based urban growth model.
 Computes the strict Figure of Merit (FoM) and the fuzzy (soft) FoM between
@@ -82,19 +95,79 @@ Interpretation of the tolerance sweep (FoM at t = 0,1,2,3,5):
     * flat curve               -> errors are structural misallocation
 """
 
+from typing import List, Optional
+import os
+
 import numpy as np
 import pandas as pd
 from scipy import ndimage
 import natsort
+
+import rasterio
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+from ti_city_00_helper_functions import export_raster 
+
+# These should be passed as parameters or set by calling code
+drop_path:  Optional[str] = None
+case_city: Optional[str] = None
+interim_path: Path = Path(drop_path).joinpath(case_city, 'interim') if case_city else Path('./interim')
+ref_raster_path: Path = Path(f'../data/processed/{case_city}_LIM_reference_AOI_150m.tif') if case_city else Path('./reference.tif')
+AOI_gdf: Optional['gpd.GeoDataFrame'] = None
+model_inputs_150m_path: Path = Path(drop_path).joinpath(case_city, 'model_inputs/TIFF_150m/') if case_city else Path('./model_inputs/TIFF_150m/')
+ti_city_in_path: Path = Path(drop_path).joinpath('model/',case_city, 'data/in/') if case_city else Path('./model/data/in/')
+
+__all__: List[str] = [
+    # masks and extraction
+    'extract_new_urban',
+    'extract_first_year_urban',
+    'restrict_mask',
+
+    # Observed new-urban masks
+    'load_observed_new_urban_csv',
+    'load_observed_new_urban_raster',
+    'observed_new_from_rasters',
+    'derive_initial_urban_from_first_tick',
+
+    # Core metrics
+    'dilate_mask',
+    'fom_from_masks',
+    'fom_tolerance_sweep',
+    
+    # Baselines (null models) & normalisation
+    'null_fom_baseline',
+    'normalize_against_baselines',
+    'evaluate_all_fom',
+
+    # Scenario-level evaluation
+    'evaluate_scenario_fom',
+
+    # exports and writing
+    'append_validation_to_results_table',
+
+    # Load model outputs and compile descriptive stats
+    'load_ascii_files',
+    'compile_scenarios_table',
+
+
+    # self-test
+    
+]
+
 
 # ----------------------------------------------------------------------
 # Conventions
 # ----------------------------------------------------------------------
 NEW_URBAN_CLASSES = (1, 2, 3, 4)   # deprived, low, mid, high
 FIRST_YEAR_CLASS = 5              # urban at simulation start (e.g. urban 2000)
-
 DEFAULT_TOLERANCES = (0, 1, 2, 3, 5)   # cells; 0 = strict FoM
 
+"""
+---------------------------------------------------------------------------
+Begin function definitions
+---------------------------------------------------------------------------
+"""
 
 # ----------------------------------------------------------------------
 # Mask extraction from TI-City output arrays
@@ -137,7 +210,9 @@ def load_observed_new_urban_csv(csv_path, n_rows, n_cols, skiprows=1):
     return arr.astype(bool)
 
 
-def load_observed_new_urban_raster(raster_path, initial_urban_raster_path=None):
+def load_observed_new_urban_raster(
+        raster_path : Path = ref_raster_path, 
+        initial_urban_raster_path: Path | None = None):
     """Load an observed new-urban raster (1 = new urban), optionally subtracting
     an initial-urban raster so that only genuinely new cells remain.
     Both rasters must already be on the AOI reference grid."""
@@ -152,7 +227,10 @@ def load_observed_new_urban_raster(raster_path, initial_urban_raster_path=None):
     return obs_new
 
 
-def observed_new_from_rasters(urban_late, urban_early, valid_mask=None):
+def observed_new_from_rasters(
+        urban_late: np.ndarray, 
+        urban_early: np.ndarray, 
+        valid_mask=None)-> np.ndarray:
     """Observed new-urban raster from the two pre-loaded reference rasters
     (numpy arrays already in the workflow):
         obs_new = observed_new_from_rasters(urban_late_raster, urban_early_raster)
@@ -175,7 +253,9 @@ def observed_new_from_rasters(urban_late, urban_early, valid_mask=None):
     return obs_new.astype(np.uint8)   # 0 = False, 1 = True
 
 
-def derive_initial_urban_from_first_tick(results_dict, scenario=None):
+def derive_initial_urban_from_first_tick(
+        results_dict : dict, 
+        scenario = None):
     """Class-5 mask from a scenario's tick-0 (or first available tick) array."""
     scenario = scenario if scenario is not None else list(results_dict.keys())[0]
     first_key = natsort.natsorted(results_dict[scenario].keys())[0]
@@ -343,11 +423,18 @@ def normalize_against_baselines(fom_table, baseline_fom_table,
     return out
 
 
-def evaluate_all_fom(results_dict, baseline_dict, obs_new,
-                     initial_urban=None, valid_mask=None,
-                     tolerances=DEFAULT_TOLERANCES, variant='full',
-                     per_tick='all', start_year=None, case_city='JAK',
-                     silent=False, normalize=True, perfect=1.0):
+def evaluate_all_fom(
+        results_dict: dict, 
+        baseline_dict: dict, 
+        obs_new: np.ndarray,
+        initial_urban=None, 
+        valid_mask=None,
+        tolerances=DEFAULT_TOLERANCES, 
+        variant='full',
+        per_tick='all', 
+        start_year:int=2000, 
+        case_city='JAK',
+        silent=False, normalize=True, perfect=1.0):
     """One-call evaluation for the split workflow:
     model scenarios from results_dict, baselines from baseline_dict.
     Returns (fom_table, baseline_fom_table, fom_table_normalized) when
@@ -372,10 +459,151 @@ def evaluate_all_fom(results_dict, baseline_dict, obs_new,
 # ----------------------------------------------------------------------
 # Scenario-level evaluation (plugs into load_ascii_files output)
 # ----------------------------------------------------------------------
-def evaluate_scenario_fom(results_dict, obs_new, initial_urban=None,
-                          valid_mask=None, tolerances=DEFAULT_TOLERANCES,
-                          variant='full', per_tick='all', start_year=None,
-                          case_city='JAK', cell_km=0.150, silent=False):
+def evaluate_scenario_fom(
+        results_dict: dict,
+        obs_new: np.ndarray,
+        seeds_list: Optional[list] = None,
+        initial_urban = None,
+        valid_mask = None,
+        tolerances = DEFAULT_TOLERANCES,
+        variant: str = 'full',
+        per_tick: str = 'all',
+        start_year: int = 2000,
+        case_city: str = 'JAK',
+        cell_km = 0.150,
+        silent = False):
+
+    """Evaluate every scenario (and tick) in results_dict against the observed
+    new-urban mask.
+
+    Parameters
+    ----------
+    results_dict  : {scenario: {tick_key: np.ndarray}} or
+                    {scenario: {seed: {tick_key: np.ndarray}}} from load_ascii_files()
+    obs_new       : boolean (rows x cols) observed new-urban mask, same grid
+    seeds_list    : list of seed names if results_dict includes seeds, else None
+    initial_urban : boolean mask of urban at start (class 5 of tick 0 is used
+                    when None). Sim and obs hits are ignored on these cells.
+    valid_mask    : boolean AOI mask; None = all cells valid.
+    per_tick      : 'all' -> one row per tick; 'final' -> last tick only.
+    start_year    : year of tick 0 (e.g. 2000 for the JAK calibration run);
+                    None -> use the tick number as the Year column.
+    Returns a long DataFrame, one row per scenario x tick (or scenario x seed x tick),
+    with strict FoM, quantity agreement, and the fuzzy FoM / HitRate at every tolerance.
+    """
+    obs_all = np.asarray(obs_new, dtype=bool)
+    if initial_urban is None:
+        # Need to handle seed structure for deriving initial urban
+        if seeds_list is None:
+            initial_urban = derive_initial_urban_from_first_tick(results_dict)
+        else:
+            # With seeds, derive from first scenario's first seed's first tick
+            first_scenario = list(results_dict.keys())[0]
+            first_seed = list(results_dict[first_scenario].keys())[0]
+            first_key = natsort.natsorted(results_dict[first_scenario][first_seed].keys())[0]
+            initial_urban = extract_first_year_urban(results_dict[first_scenario][first_seed][first_key])
+
+    obs = restrict_mask(obs_all, initial_urban=initial_urban, valid_mask=valid_mask)
+    n_obs = int(np.sum(obs))
+    if not silent:
+        print(f'Evaluating against {n_obs:,} observed new-urban cells '
+              f'(excl. {case_city} initial urban & invalid cells).')
+
+    rows = []
+
+    if seeds_list is None:
+        # original structure: {scenario: {tick: array}}
+        for scenario, series in results_dict.items():
+            if per_tick == 'all':
+                sorted_keys = natsort.natsorted(series.keys())
+                keys = sorted_keys
+            else:
+                sorted_keys = natsort.natsorted(series.keys())
+                keys = series #sorted_keys[-1:]
+            for key in keys:
+                raster = series[key]
+                if raster.shape != obs.shape:
+                    raise ValueError(
+                        f'Scenario {scenario} tick {key}: raster {raster.shape} does not '
+                        f'match the observed grid {obs.shape}. Check the AOI reference raster.')
+                sim = restrict_mask(extract_new_urban(raster),
+                                   initial_urban=initial_urban, valid_mask=valid_mask)
+                row = {'Scenario': scenario, 'Tick': key}
+                row['Year'] = (start_year + int(key)) if start_year is not None else int(key)
+                row['N_sim'] = int(np.sum(sim))
+                row['N_obs'] = n_obs
+                row['QuantityRatio'] = row['N_sim'] / n_obs if n_obs else np.nan
+                strict = fom_from_masks(sim, obs, tolerance=0)
+                row['Hits'], row['Misses'], row['FalseAlarms'] = (
+                    strict['Hits'], strict['Misses'], strict['FalseAlarms'])
+                row['FoM'] = strict['FoM']
+                row['HitRate'] = strict['HitRate']
+                row['SimArea_km2'] = np.round(row['N_sim'] * cell_km * cell_km, 2)
+                for t in tolerances:
+                    if t == 0:
+                        continue
+                    m = fom_from_masks(sim, obs, tolerance=t, variant=variant)
+                    row[f'FuzzyFoM_t{t}'] = m['FoM']
+                    row[f'FuzzyHitRate_t{t}'] = m['HitRate']
+                rows.append(row)
+                if not silent:
+                    print(f'  {scenario} t{key}: N_sim={row["N_sim"]:,} '
+                          f'FoM={row["FoM"]:.3f} '
+                          + ' '.join(f'fFoM_t{t}={row[f"FuzzyFoM_t{t}"]:.3f}'
+                                     for t in tolerances if t > 0))
+    else:
+        # structure with seeds: {scenario: {seed: {tick: array}}}
+        for scenario, seed_dict in results_dict.items():
+            for seed, series in seed_dict.items():
+                sorted_keys = natsort.natsorted(series.keys())
+                keys = sorted_keys if per_tick == 'all' else sorted_keys[-1:]
+                for key in keys:
+                    raster = series[key]
+                    if raster.shape != obs.shape:
+                        raise ValueError(
+                            f'Scenario {scenario} seed {seed} tick {key}: raster {raster.shape} does not '
+                            f'match the observed grid {obs.shape}. Check the AOI reference raster.')
+                    sim = restrict_mask(extract_new_urban(raster),
+                                       initial_urban=initial_urban, valid_mask=valid_mask)
+                    row = {'Scenario': scenario, 'Seed': seed, 'Tick': key}
+                    row['Year'] = (start_year + int(key)) if start_year is not None else int(key)
+                    row['N_sim'] = int(np.sum(sim))
+                    row['N_obs'] = n_obs
+                    row['QuantityRatio'] = row['N_sim'] / n_obs if n_obs else np.nan
+                    strict = fom_from_masks(sim, obs, tolerance=0)
+                    row['Hits'], row['Misses'], row['FalseAlarms'] = (
+                        strict['Hits'], strict['Misses'], strict['FalseAlarms'])
+                    row['FoM'] = strict['FoM']
+                    row['HitRate'] = strict['HitRate']
+                    row['SimArea_km2'] = np.round(row['N_sim'] * cell_km * cell_km, 2)
+                    for t in tolerances:
+                        if t == 0:
+                            continue
+                        m = fom_from_masks(sim, obs, tolerance=t, variant=variant)
+                        row[f'FuzzyFoM_t{t}'] = m['FoM']
+                        row[f'FuzzyHitRate_t{t}'] = m['HitRate']
+                    rows.append(row)
+                    if not silent:
+                        print(f'  {scenario} {seed} t{key}: N_sim={row["N_sim"]:,} '
+                              f'FoM={row["FoM"]:.3f} '
+                              + ' '.join(f'fFoM_t{t}={row[f"FuzzyFoM_t{t}"]:.3f}'
+                                         for t in tolerances if t > 0))
+
+    return pd.DataFrame(rows)
+
+
+def evaluate_scenario_fom_old(
+        results_dict: dict, 
+        obs_new: np.ndarray, 
+        initial_urban = None,
+        valid_mask = None, 
+        tolerances = DEFAULT_TOLERANCES,
+        variant: str = 'full', 
+        per_tick: str='all', 
+        start_year : int = 2000,
+        case_city: str ='JAK', 
+        cell_km=0.150, 
+        silent=False):
     """Evaluate every scenario (and tick) in results_dict against the observed
     new-urban mask.
 
@@ -484,3 +712,690 @@ if __name__ == '__main__':
     assert fom_from_masks(sim_offset, obs, tolerance=2)['FoM'] == 1.0      # near-miss forgiven
     assert fom_from_masks(sim_far, obs, tolerance=2)['FoM'] < 0.01       # structural mismatch stays flat
     print('Self-test passed: tolerance sweep separates offsets from misallocation.')
+
+# ----------------------------------------------------------------------
+# Load model outputs and compile descriptive stats
+# ----------------------------------------------------------------------
+
+def load_ascii_files(
+        scenarios: list[str] = ['s0', 's1', 's2', 's3'],
+        scenario_path: dict = {'s0': 'R000/'},
+        seeds_list: Optional[list[str]] = None,
+        load_mode: str = 'final',
+        results_folder: Path = interim_path,
+        file_name_template: str = 'expansion_income_t',
+        export_tiff: bool = False,
+        export_path: Path = interim_path,
+        ref_raster_path: Path = ref_raster_path,
+        case_city: str = 'JAK',
+        silent: bool = False):
+
+    # parameter validation
+    if not isinstance(scenarios, list):
+        raise TypeError(f"scenarios must be a list, got {type(scenarios)}")
+    if not isinstance(scenario_path, dict):
+        raise TypeError(f"scenario_path must be a dict, got {type(scenario_path)}")
+    if load_mode not in ('final', 'all'):
+        raise ValueError(
+            f"load_mode must be 'final' or 'all', got '{load_mode}'"
+        )
+    if not file_name_template:
+        raise ValueError("file_name_template cannot be empty")
+    if not results_folder.exists():
+        raise FileNotFoundError(
+            f"results_folder does not exist: {results_folder}"
+        )
+    if not results_folder.is_dir():
+        raise NotADirectoryError(
+            f"results_folder is not a directory: {results_folder}"
+        )
+    # Validate all scenarios exist in scenario_path
+    for scenario in scenarios:
+        if scenario not in scenario_path:
+            raise ValueError(
+                f"Scenario '{scenario}' not found in scenario_path dict. "
+                f"Available scenarios: {list(scenario_path.keys())}"
+            )
+
+    results_dict = {}
+    for scenario in scenarios:
+        if seeds_list is None:
+            # without seeds: scenario > {tick: array}           
+            path = results_folder / scenario_path[scenario]
+
+            # Validate path exists
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"Scenario directory not found: {path}. "
+                    f"Check scenario_path['{scenario}'] = '{scenario_path[scenario]}'"
+                )
+            if not path.is_dir():
+                raise NotADirectoryError(
+                    f"Expected directory but found a file: {path}"
+                )
+            if not silent:
+                print(f'Processing content from: {scenario} at {path}')
+            # List and filter ASCII files
+            try:
+                ascii_files = [f for f in os.listdir(path) if f.endswith('.asc')]
+            except PermissionError as e:
+                raise PermissionError(
+                    f"Permission denied when listing files in {path}: {e}"
+                ) from e
+            except OSError as e:
+                raise OSError(
+                    f"OS error listing files in {path}: {e}"
+                ) from e
+            ascii_files = natsort.natsorted(ascii_files)
+            # Handle empty directory
+            if not ascii_files:
+                if not silent:
+                    print(f"Warning: No .asc files found in {path}")
+                results_dict[scenario] = {}
+                continue
+            
+            results_dict[scenario] = {}
+            if load_mode == 'final':
+                # Load only the last tick
+                if not silent:
+                    print(f'Loading only the final tick for scenario: {scenario}')
+                last_file = ascii_files[-1]
+                url = path / last_file
+                try:
+                    key = Path(last_file).stem
+                    if key.startswith(file_name_template):
+                        key = key[len(file_name_template):]
+                        if not silent:
+                            print(f'Extracted key: {key} from file: {last_file}')
+                    else:
+                        key = key.split('t')[-1]
+                        if not silent:
+                            print(f'Extracted key-1: {key} from file: {last_file}')
+                    with rasterio.open(url, 'r') as src:
+                        array = src.read(1)
+                    results_dict[scenario][key] = array
+                except rasterio.errors.RasterioError as e:
+                    raise RuntimeError(
+                        f"Failed to read raster file {url}. "
+                        f"Rasterio error: {e}"
+                    ) from e
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Unexpected error processing file {url}: "
+                        f"{type(e).__name__}: {e}"
+                    ) from e
+            # load all ticks
+            elif load_mode == 'all':
+                if not silent:
+                    print(f'Loading all ticks for scenario: {scenario}')
+
+                for file in ascii_files:
+                    url = path / file
+                    try:
+                        key = Path(file).stem
+                        if key.startswith(file_name_template):
+                            key = key[len(file_name_template):]
+                            if not silent:
+                                print(f'Extracted key: {key} from file: {file}')
+                        else:
+                            key = key.split('t')[-1]
+                            if not silent:
+                                print(f'Extracted key-1: {key} from file: {file}')
+                        with rasterio.open(url, 'r') as src:
+                            array = src.read(1)
+                        results_dict[scenario][key] = array
+                    except rasterio.errors.RasterioError as e:
+                        raise RuntimeError(
+                            f"Failed to read raster file {url}. "
+                            f"Rasterio error: {e}"
+                        ) from e
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Unexpected error processing file {url}: "
+                            f"{type(e).__name__}: {e}"
+                        ) from e
+        else:
+            # with seeds: scenario > seed > {tick: array}            
+            for seed in seeds_list:
+                path = results_folder / scenario_path[scenario] / seed
+                # Validate path exists
+                if not path.exists():
+                    raise FileNotFoundError(
+                        f"Seed directory not found: {path}. "
+                        f"Check scenario_path['{scenario}'] = '{scenario_path[scenario]}' "
+                        f"and seed '{seed}'"
+                    )
+                if not path.is_dir():
+                    raise NotADirectoryError(
+                        f"Expected directory but found a file: {path}"
+                    )
+
+                if not silent:
+                    print(f'Processing content from: {scenario} and seed: {seed} at {path}')
+
+                # List and filter ASCII files
+                try:
+                    ascii_files = [f for f in os.listdir(path) if f.endswith('.asc')]
+                except PermissionError as e:
+                    raise PermissionError(
+                        f"Permission denied when listing files in {path}: {e}"
+                    ) from e
+                except OSError as e:
+                    raise OSError(
+                        f"OS error listing files in {path}: {e}"
+                    ) from e
+
+                ascii_files = natsort.natsorted(ascii_files)
+
+                # Handle empty directory
+                if not ascii_files:
+                    if not silent:
+                        print(f"Warning: No .asc files found in {path}")
+                    results_dict[scenario][seed] = {}
+                    continue
+
+                results_dict[scenario][seed] = {}
+
+                if load_mode == 'final':
+                    if not silent:
+                        print(f'Loading only the final tick for scenario: {scenario} and seed: {seed}')
+
+                    last_file = ascii_files[-1]
+                    url = path / last_file
+
+                    try:
+                        key = Path(last_file).stem
+                        if key.startswith(file_name_template):
+                            key = key[len(file_name_template):]
+                            if not silent:
+                                print(f'Extracted key: {key} from file: {last_file}')
+                        else:
+                            key = key.split('t')[-1]
+                            if not silent:
+                                print(f'Extracted key-1: {key} from file: {last_file}')
+
+                        with rasterio.open(url, 'r') as src:
+                            array = src.read(1)
+                        results_dict[scenario][seed][key] = array
+
+                    except rasterio.errors.RasterioError as e:
+                        raise RuntimeError(
+                            f"Failed to read raster file {url}. "
+                            f"Rasterio error: {e}"
+                        ) from e
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Unexpected error processing file {url}: "
+                            f"{type(e).__name__}: {e}"
+                        ) from e
+
+                elif load_mode == 'all':
+                    if not silent:
+                        print(f'Loading all ticks for scenario: {scenario} and seed: {seed}')
+
+                    for file in ascii_files:
+                        url = path / file
+
+                        try:
+                            key = Path(file).stem
+                            if key.startswith(file_name_template):
+                                key = key[len(file_name_template):]
+                                if not silent:
+                                    print(f'Extracted key: {key} from file: {file}')
+                            else:
+                                key = key.split('t')[-1]
+                                if not silent:
+                                    print(f'Extracted key-1: {key} from file: {file}')
+
+                            with rasterio.open(url, 'r') as src:
+                                array = src.read(1)
+                            results_dict[scenario][seed][key] = array
+
+                        except rasterio.errors.RasterioError as e:
+                            raise RuntimeError(
+                                f"Failed to read raster file {url}. "
+                                f"Rasterio error: {e}"
+                            ) from e
+                        except Exception as e:
+                            raise RuntimeError(
+                                f"Unexpected error processing file {url}: "
+                                f"{type(e).__name__}: {e}"
+                            ) from e
+
+    # export
+    if export_tiff:
+        file_name = ''
+        if seeds_list is None:
+            for scenario, tick in results_dict.items():
+                dir_path = export_path / scenario_path[scenario]
+                dir_path.mkdir(parents=True, exist_ok=True)
+                for tick_key, raster in tick.items():
+                    try:
+                        tick_int = int(tick_key)
+                        tick_str = f"{tick_int:03d}"
+                    except Exception:
+                        tick_str = tick_key
+                    file_name = f"{case_city}_TI-City_results_{scenario}_t{tick_str}.tif"
+                    url = dir_path / file_name
+                    print(url)
+                    export_raster(
+                        raster=raster.astype('int16'),
+                        url=url,
+                        data_type=rasterio.int16,
+                        ref_raster_path=ref_raster_path
+                    )
+        else:
+            for scenario, seed_dict in results_dict.items():
+                for seed, tick in seed_dict.items():
+                    dir_path = export_path / scenario_path[scenario] / seed
+                    dir_path.mkdir(parents=True, exist_ok=True)
+                    for tick_key, raster in tick.items():
+                        try:
+                            tick_int = int(tick_key)
+                            tick_str = f"{tick_int:03d}"
+                        except Exception:
+                            tick_str = tick_key
+                        file_name = f"{case_city}_TI-City_results_{scenario}_{seed}_t{tick_str}.tif"
+                        url = dir_path / file_name
+                        print(url)
+                        export_raster(
+                            raster=raster.astype('int16'),
+                            url=url,
+                            data_type=rasterio.int16,
+                            ref_raster_path=ref_raster_path
+                        )
+
+    return results_dict
+
+
+def compile_scenarios_table(
+    results_dict: dict,
+    baseline_dict: dict,
+    seeds_list: Optional[list] = None,
+    exposure_raster: np.ndarray = None,
+    start_year: int = 2000,
+    end_year: int = 2025,
+    cell_area: float = 0.150 * 0.150,
+    export_results_table: bool = True,
+    export_path: Path = interim_path,
+    case_city: str = 'JAK',
+    scenario_list: list = ['s0', 's1', 's2', 's3'],
+    scenario_path_dict: dict = {'s0': 'R000/', 's1': 'R001/', 's2': 'R002/', 's3': 'R003/'}
+):
+    agent_class_dict = {
+        'na': 0, 'deprived': 1, 'low': 2, 'mid': 3,
+        'high': 4, 'urban_first_year': 5
+    }
+    descriptive_dict = {}
+
+    if seeds_list is None:
+        # original structure: {scenario: {tick: array}}
+        for scenario, series in results_dict.items():
+            sorted_keys = natsort.natsorted(series.keys())
+            descriptive_dict[scenario] = {}
+
+            for key in sorted_keys:
+                raster = series[key]
+                year = start_year + int(key)
+                stats_dict = {}
+                stats_dict['New urban cells'] = np.count_nonzero(
+                    (raster > 0) & (raster <= 4)
+                )
+                stats_dict['Total Urban Area'] = np.round(
+                    np.sum(raster > 0) * cell_area, 2
+                )
+                stats_dict['Urban Area Exposed to Flooding'] = np.round(
+                    np.sum((raster > 0) & (exposure_raster > 0)) * cell_area, 2
+                )
+                stats_dict['Total New Urban Area'] = np.round(
+                    stats_dict['Total Urban Area']
+                    - np.sum(raster == agent_class_dict['urban_first_year']) * cell_area,
+                    2
+                )
+                stats_dict['New Urban Area Exposed to Flooding'] = np.round(
+                    stats_dict['Urban Area Exposed to Flooding']
+                    - np.sum(
+                        (raster == agent_class_dict['urban_first_year'])
+                        & (exposure_raster > 0)
+                    ) * cell_area,
+                    2
+                )
+
+                # Compare this result with each baseline raster.
+                for baseline_name, baseline_series in baseline_dict.items():
+                    if key in baseline_series:
+                        baseline_raster = baseline_series[key]
+                    elif len(baseline_series) == 1:
+                        baseline_raster = next(iter(baseline_series.values()))
+                    else:
+                        raise KeyError(
+                            f"No baseline raster for tick {key!r} in "
+                            f"{baseline_name!r}."
+                        )
+
+                    if baseline_raster.shape != raster.shape:
+                        raise ValueError(
+                            f"Raster shape mismatch for baseline {baseline_name!r}: "
+                            f"{baseline_raster.shape} != {raster.shape}"
+                        )
+
+                    new_cells = (baseline_raster > 0) & (baseline_raster <= 4)
+                    stats_dict[f'new_cells_{baseline_name}'] = int(
+                        np.count_nonzero(new_cells)
+                    )
+                    stats_dict[f'new_area_{baseline_name}'] = np.round(
+                        np.count_nonzero(new_cells) * cell_area, 2
+                    )
+
+                for class_name, class_id in agent_class_dict.items():
+                    if class_name == 'na':
+                        continue
+
+                    stats_dict[f'Urban Area ({class_name})'] = np.round(
+                        np.sum(raster == class_id) * cell_area, 2
+                    )
+                    stats_dict[f'Urban Area Exposed ({class_name})'] = np.round(
+                        np.sum((raster == class_id) & (exposure_raster > 0))
+                        * cell_area,
+                        2
+                    )
+
+                descriptive_dict[scenario][year] = stats_dict
+
+    else:
+        # structure with seeds: {scenario: {seed: {tick: array}}}
+        for scenario, seed_dict in results_dict.items():
+            descriptive_dict[scenario] = {}
+            for seed, series in seed_dict.items():
+                sorted_keys = natsort.natsorted(series.keys())
+                descriptive_dict[scenario][seed] = {}
+                for key in sorted_keys:
+                    raster = series[key]
+                    year = start_year + int(key)
+                    stats_dict = {}
+                    stats_dict['New urban cells'] = np.count_nonzero(
+                        (raster > 0) & (raster <= 4)
+                    )
+                    stats_dict['Total Urban Area'] = np.round(
+                        np.sum(raster > 0) * cell_area, 2
+                    )
+                    stats_dict['Urban Area Exposed to Flooding'] = np.round(
+                        np.sum((raster > 0) & (exposure_raster > 0)) * cell_area, 2
+                    )
+                    stats_dict['Total New Urban Area'] = np.round(
+                        stats_dict['Total Urban Area']
+                        - np.sum(raster == agent_class_dict['urban_first_year']) * cell_area,
+                        2
+                    )
+                    stats_dict['New Urban Area Exposed to Flooding'] = np.round(
+                        stats_dict['Urban Area Exposed to Flooding']
+                        - np.sum(
+                            (raster == agent_class_dict['urban_first_year'])
+                            & (exposure_raster > 0)
+                        ) * cell_area,
+                        2
+                    )
+                    # Compare with baselines - need to check seed structure in baseline_dict too
+                    for baseline_name, baseline_seed_dict in baseline_dict.items():
+                        if seed in baseline_seed_dict:
+                            baseline_series = baseline_seed_dict[seed]
+                        elif len(baseline_seed_dict) == 1:
+                            # get the first (and only) seed's series
+                            baseline_series = next(iter(baseline_seed_dict.values()))
+                        else:
+                            raise KeyError(
+                                f"No baseline data for seed {seed!r} in {baseline_name!r}"
+                            )
+
+                        if key in baseline_series:
+                            baseline_raster = baseline_series[key]
+                        elif len(baseline_series) == 1:
+                            baseline_raster = next(iter(baseline_series.values()))
+                        else:
+                            raise KeyError(
+                                f"No baseline raster for tick {key!r} in "
+                                f"{baseline_name!r}, seed {seed!r}"
+                            )
+
+                        if baseline_raster.shape != raster.shape:
+                            raise ValueError(
+                                f"Raster shape mismatch for baseline {baseline_name!r}, "
+                                f"seed {seed!r}: {baseline_raster.shape} != {raster.shape}"
+                            )
+
+                        new_cells = (baseline_raster > 0) & (baseline_raster <= 4)
+                        stats_dict[f'new_cells_{baseline_name}'] = int(
+                            np.count_nonzero(new_cells)
+                        )
+                        stats_dict[f'new_area_{baseline_name}'] = np.round(
+                            np.count_nonzero(new_cells) * cell_area, 2
+                        )
+
+                    for class_name, class_id in agent_class_dict.items():
+                        if class_name == 'na':
+                            continue
+
+                        stats_dict[f'Urban Area ({class_name})'] = np.round(
+                            np.sum(raster == class_id) * cell_area, 2
+                        )
+                        stats_dict[f'Urban Area Exposed ({class_name})'] = np.round(
+                            np.sum((raster == class_id) & (exposure_raster > 0))
+                            * cell_area,
+                            2
+                        )
+
+                    descriptive_dict[scenario][seed][year] = stats_dict
+
+    # Build rows - handles both structures
+    rows = []
+    if seeds_list is None:
+        for scenario, years in descriptive_dict.items():
+            for year, stats in years.items():
+                row = {"Scenario": scenario, "Year": year}
+                row.update(stats)
+                rows.append(row)
+    else:
+        for scenario, seed_dict in descriptive_dict.items():
+            for seed, years in seed_dict.items():
+                for year, stats in years.items():
+                    row = {"Scenario": scenario, "Seed": seed, "Year": year}
+                    row.update(stats)
+                    rows.append(row)
+
+    results_table = pd.DataFrame(rows)
+    results_table = results_table.sort_values(
+        ["Scenario", "Year"]
+    ).reset_index(drop=True)
+
+    # Add total urban area and percentages
+    # Note: if seeds_list is not None, you may want to group by Scenario+Seed
+    urban_area_columns = [
+        "Urban Area (deprived)",
+        "Urban Area (low)",
+        "Urban Area (mid)",
+        "Urban Area (high)"
+    ]
+
+    results_table["Total Urban Area"] = results_table[urban_area_columns].sum(axis=1)
+
+    for class_name in ("deprived", "low", "mid", "high"):
+        results_table[f"Urban Area ({class_name}) Percentage"] = (
+            results_table[f"Urban Area ({class_name})"]
+            / results_table["Total Urban Area"] * 100
+        ).round(2)
+
+    exposure_columns = [
+        f"Urban Area Exposed ({class_name})"
+        for class_name in ("deprived", "low", "mid", "high")
+    ]
+    results_table["Urban Area Exposed (total)"] = results_table[
+        exposure_columns
+    ].sum(axis=1)
+
+    for class_name in ("deprived", "low", "mid", "high"):
+        results_table[f"Urban Area Exposed ({class_name}) Percentage"] = (
+            results_table[f"Urban Area Exposed ({class_name})"]
+            / results_table["Urban Area Exposed (total)"] * 100
+        ).round(2)
+
+    if export_results_table:
+        if seeds_list is None:
+            output_file = export_path / (
+                f"{case_city}_urban_exposed_areas_analysis_"
+                f"{scenario_path_dict[scenario_list[0]].rstrip('/')}_"
+                f"{scenario_path_dict[scenario_list[-1]].rstrip('/')}.xlsx"
+            )
+        else:
+            output_file = export_path / (
+                f"{case_city}_urban_exposed_areas_analysis_with_seeds_"
+                f"{scenario_path_dict[scenario_list[0]].rstrip('/')}_"
+                f"{scenario_path_dict[scenario_list[-1]].rstrip('/')}.xlsx"
+            )
+        results_table.to_excel(output_file, index_label="ID")
+        print(f"Results table exported to {output_file}")
+
+    return results_table
+
+def compile_scenarios_table_old(
+    results_dict: dict,
+    baseline_dict: dict,
+    seeds_list: Optional[list] = None,
+    exposure_raster: np.ndarray = None,
+    start_year: int = 2000,
+    end_year: int = 2025,
+    cell_area: float = 0.150 * 0.150,
+    export_results_table: bool = True,
+    export_path: Path = interim_path,
+    case_city: str = 'JAK',
+    scenario_list: list = ['s0', 's1', 's2', 's3'],
+    scenario_path_dict: dict = {'s0': 'R000/', 's1': 'R001/', 's2': 'R002/', 's3': 'R003/'}
+):
+    agent_class_dict = {
+        'na': 0, 'deprived': 1, 'low': 2, 'mid': 3,
+        'high': 4, 'urban_first_year': 5
+    }
+    descriptive_dict = {}
+    for scenario, series in results_dict.items():
+        sorted_keys = natsort.natsorted(series.keys())
+        descriptive_dict[scenario] = {}
+
+        for key in sorted_keys:
+            raster = series[key]
+            year = start_year + int(key)
+
+            stats_dict = {}
+            stats_dict['New urban cells'] = np.count_nonzero(
+                (raster > 0) & (raster <= 4)
+            )
+            stats_dict['Total Urban Area'] = np.round(
+                np.sum(raster > 0) * cell_area, 2
+            )
+            stats_dict['Urban Area Exposed to Flooding'] = np.round(
+                np.sum((raster > 0) & (exposure_raster > 0)) * cell_area, 2
+            )
+            stats_dict['Total New Urban Area'] = np.round(
+                stats_dict['Total Urban Area']
+                - np.sum(raster == agent_class_dict['urban_first_year']) * cell_area,
+                2
+            )
+            stats_dict['New Urban Area Exposed to Flooding'] = np.round(
+                stats_dict['Urban Area Exposed to Flooding']
+                - np.sum(
+                    (raster == agent_class_dict['urban_first_year'])
+                    & (exposure_raster > 0)
+                ) * cell_area,
+                2
+            )
+
+            # Compare this result with each baseline raster.
+            for baseline_name, baseline_series in baseline_dict.items():
+                if key in baseline_series:
+                    baseline_raster = baseline_series[key]
+                elif len(baseline_series) == 1:
+                    baseline_raster = next(iter(baseline_series.values()))
+                else:
+                    raise KeyError(
+                        f"No baseline raster for tick {key!r} in "
+                        f"{baseline_name!r}."
+                    )
+
+                if baseline_raster.shape != raster.shape:
+                    raise ValueError(
+                        f"Raster shape mismatch for baseline {baseline_name!r}: "
+                        f"{baseline_raster.shape} != {raster.shape}"
+                    )
+
+                new_cells = (baseline_raster > 0) & (baseline_raster <= 4)
+                stats_dict[f'new_cells_{baseline_name}'] = int(
+                    np.count_nonzero(new_cells)
+                )
+                stats_dict[f'new_area_{baseline_name}'] = np.round(
+                    np.count_nonzero(new_cells) * cell_area, 2
+                )
+
+            for class_name, class_id in agent_class_dict.items():
+                if class_name == 'na':
+                    continue
+
+                stats_dict[f'Urban Area ({class_name})'] = np.round(
+                    np.sum(raster == class_id) * cell_area, 2
+                )
+                stats_dict[f'Urban Area Exposed ({class_name})'] = np.round(
+                    np.sum((raster == class_id) & (exposure_raster > 0))
+                    * cell_area,
+                    2
+                )
+
+            descriptive_dict[scenario][year] = stats_dict
+
+    rows = []
+    for scenario, years in descriptive_dict.items():
+        for year, stats in years.items():
+            row = {"Scenario": scenario, "Year": year}
+            row.update(stats)
+            rows.append(row)
+
+    results_table = pd.DataFrame(rows)
+    results_table = results_table.sort_values(
+        ["Scenario", "Year"]
+    ).reset_index(drop=True)
+
+    results_table["Total Urban Area"] = results_table[
+        [
+            "Urban Area (deprived)",
+            "Urban Area (low)",
+            "Urban Area (mid)",
+            "Urban Area (high)"
+        ]
+    ].sum(axis=1)
+
+    for class_name in ("deprived", "low", "mid", "high"):
+        results_table[f"Urban Area ({class_name}) Percentage"] = (
+            results_table[f"Urban Area ({class_name})"]
+            / results_table["Total Urban Area"] * 100
+        ).round(2)
+
+    exposure_columns = [
+        f"Urban Area Exposed ({class_name})"
+        for class_name in ("deprived", "low", "mid", "high")
+    ]
+    results_table["Urban Area Exposed (total)"] = results_table[
+        exposure_columns
+    ].sum(axis=1)
+
+    for class_name in ("deprived", "low", "mid", "high"):
+        results_table[f"Urban Area Exposed ({class_name}) Percentage"] = (
+            results_table[f"Urban Area Exposed ({class_name})"]
+            / results_table["Urban Area Exposed (total)"] * 100
+        ).round(2)
+
+    if export_results_table:
+        output_file = export_path / (
+            f"{case_city}_urban_exposed_areas_analysis_"
+            f"{scenario_path_dict[scenario_list[0]].rstrip('/')}_"
+            f"{scenario_path_dict[scenario_list[-1]].rstrip('/')}.xlsx"
+        )
+        results_table.to_excel(output_file, index_label="ID")
+        print(f"Results table exported to {output_file}")
+
+    return results_table
