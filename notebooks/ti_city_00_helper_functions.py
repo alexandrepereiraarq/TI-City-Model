@@ -1569,6 +1569,7 @@ def file_hash(path: Path) -> str:
 
 
 def create_folders(
+        case_city: str = "JAK",
         seeds_list: list = [11,22,33], 
         runs_list: list = [], 
         first_run: str = 'R100', 
@@ -1578,16 +1579,16 @@ def create_folders(
         code_version: str = "v41",
         model_mode: str = "calibrate?, RED-on?, neighbour-on?",
         hh_number: str = "",
-        status: str = "pending"
+        status: str = "pending",
+        scenarios_file: str = "scenarios.csv",
+        prj_file_list: list = ['expansion_income_t000.prj', 'expansion_income_t005.prj',
+                                    'expansion_income_t010.prj', 'expansion_income_t015.prj',
+                                    'expansion_income_t020.prj', 'expansion_income_t025.prj']
         ) -> None:
 
     docs_folder_path = root_folder_path / "docs"
     outputs_folder_path = root_folder_path / f"model/{case_city}/data/out"
     inputs_folder_path = root_folder_path / f"model/{case_city}/data/in"
-
-    if run_type == "--root":
-        print("repo root (default: current dir)")
-        help="repo root (default: current dir)"
 
     last_run = first_run + len(runs_list) - 1
     manifest_path = docs_folder_path / f"{case_city}_TA-model_manifest_R{first_run}_{last_run}.csv"
@@ -1615,7 +1616,7 @@ def create_folders(
                     "inputs": inputs,
                     "mode_switches": model_mode,
                     "household_number": hh_number,
-                    "scenarios_csv_md5": file_hash(inputs_folder_path / f"scenarios.csv"),
+                    "scenarios_csv_md5": file_hash(inputs_folder_path / scenarios_file),
                     "weights_file_md5": file_hash(
                         inputs_folder_path / f"weights_{run['scenario']}.csv"
                     ),
@@ -1630,12 +1631,13 @@ def create_folders(
         print(f"  R{first_run + run['offset']:>3}  {run['scenario']:<12} {run['purpose']}")
     
     if run_type == "dry-run":
-        action="store_true"
+        
         for folder in folders:
             print(folder)
         print(f"\nManifest would be written to: {manifest_path}")
         print("\n(dry run — nothing created)")
         return
+    
     elif run_type == "create":
     # ---- create folders ----
         for row in rows:
@@ -1647,9 +1649,7 @@ def create_folders(
             in_folder.mkdir(parents=True, exist_ok=True)
 
             # copy .prj files to each folder
-            prj_file_list = ['expansion_income_t000.prj', 'expansion_income_t005.prj',
-                            'expansion_income_t010.prj', 'expansion_income_t015.prj',
-                            'expansion_income_t020.prj', 'expansion_income_t025.prj']
+            
             for prj_file in prj_file_list:
                 prj_file_path = outputs_folder_path / f"{prj_file}"
                 if prj_file_path.exists():
@@ -1658,7 +1658,7 @@ def create_folders(
                     print(f"Warning: .prj file not found: {prj_file_path}")
 
             # Copy scenario and weights files to in folder
-            scenario_file = inputs_folder_path / f"scenarios.csv"
+            scenario_file = inputs_folder_path / scenarios_file
             weights_file = inputs_folder_path / f"weights_{row['scenario']}.csv"
 
             if scenario_file.exists():
