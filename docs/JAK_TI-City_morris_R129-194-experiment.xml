@@ -1,5 +1,5 @@
 <experiments>
-  <experiment name="TA_city_morris_R129-194" repetitions="1" sequentialRunOrder="true">
+  <experiment name="TA_city_morris_R129-194" repetitions="1" sequentialRunOrder="true"  runMetricsEveryStep="true" timeLimit="50">
     <setup>set-up</setup>
     <go>go</go>
     <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
@@ -11,6 +11,9 @@
       <metric>(household-number - count patches with [new-urban = 1])</metric>
       <metric>(sum [estate-size] of developers with [class = 2 and MED-movement = 1]) - count patches with [pMED-movement = 1]</metric>
       <metric>(sum [estate-size] of developers with [class = 3 and HED-movement = 1]) - count patches with [pHED-movement = 1]</metric>
+      <metric>count patches with [pMED-movement = 1]</metric>
+      <metric>count patches with [pHED-movement = 1]</metric>
+      <metric>sum [estate-size] of developers with [(class = 2 and MED-movement = 0) or (class = 3 and HED-movement = 0)]</metric>
       <metric>ticks</metric>
     </metrics>
     <constants>
