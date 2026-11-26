@@ -278,9 +278,8 @@ to set-scenarios
     [set scenarios-file-path "./data/in/scenarios_calibration.csv"]
   )
   
-  
   if not file-exists? scenarios-file-path [
-    error "No file './data/in/scenarios.csv' exists in your home directory!"
+    error (word "No file " scenarios-file-path "exists in your home directory!")
   ]
   
   ;;file-open scenarios-file-path
