@@ -1,0 +1,13 @@
+[run number],run-seed,scenario,(count patches with [new-urban = 1]),(household-number - count patches with [new-urban = 1]),(sum [estate-size] of developers with [class = 2 and MED-movement = 1]) - count patches with [pMED-movement = 1],(sum [estate-size] of developers with [class = 3 and HED-movement = 1]) - count patches with [pHED-movement = 1],sum [estate-size] of developers with [(class = 2 and MED-movement = 0) or (class = 3 and HED-movement = 0)],[step]
+1,11,s0,29647,9,0,0,9,25
+5,22,s0,29647,9,0,0,9,25
+9,33,s0,29647,9,0,0,9,25
+3,11,s_edge,29650,6,0,0,6,25
+7,22,s_edge,29653,3,0,0,3,25
+11,33,s_edge,29656,0,0,0,0,25
+2,11,s_random,29656,0,0,0,0,25
+6,22,s_random,29650,6,0,0,6,25
+10,33,s_random,29653,3,0,0,3,25
+4,11,s_roadbound,29656,0,0,0,0,25
+8,22,s_roadbound,29656,0,0,0,0,25
+12,33,s_roadbound,29656,0,0,0,0,25
