@@ -274,12 +274,12 @@ to set-scenarios
   ;; https://stackoverflow.com/questions/78982817/how-to-retrieve-values-form-csv-file-in-netlogo
   file-close-all ;; Close any open files
   (ifelse calibrate? 
-    [set scenarios-file-path "./data/in/scenarios.csv"]
     [set scenarios-file-path "./data/in/scenarios_calibration.csv"]
+    [set scenarios-file-path "./data/in/scenarios.csv"]    
   )
   
   if not file-exists? scenarios-file-path [
-    error (word "No file " scenarios-file-path "exists in your home directory!")
+    error (word "No file " scenarios-file-path " exists in your home directory!")
   ]
   
   ;;file-open scenarios-file-path
