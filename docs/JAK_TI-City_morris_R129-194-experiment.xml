@@ -1,0 +1,105 @@
+<experiments>
+  <experiment name="TA_city_morris_R129-194" repetitions="1" sequentialRunOrder="true">
+    <setup>set-up</setup>
+    <go>go</go>
+    <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
+    <metrics>
+      <metric>behaviorspace-run-number</metric>
+      <metric>scenario</metric>
+      <metric>run-seed</metric>
+      <metric>(count patches with [new-urban = 1])</metric>
+      <metric>(household-number - count patches with [new-urban = 1])</metric>
+      <metric>(sum [estate-size] of developers with [class = 2 and MED-movement = 1]) - count patches with [pMED-movement = 1]</metric>
+      <metric>(sum [estate-size] of developers with [class = 3 and HED-movement = 1]) - count patches with [pHED-movement = 1]</metric>
+      <metric>ticks</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="scenario">
+        <value value="&quot;s_m001&quot;"></value>
+        <value value="&quot;s_m002&quot;"></value>
+        <value value="&quot;s_m003&quot;"></value>
+        <value value="&quot;s_m004&quot;"></value>
+        <value value="&quot;s_m005&quot;"></value>
+        <value value="&quot;s_m006&quot;"></value>
+        <value value="&quot;s_m007&quot;"></value>
+        <value value="&quot;s_m008&quot;"></value>
+        <value value="&quot;s_m009&quot;"></value>
+        <value value="&quot;s_m010&quot;"></value>
+        <value value="&quot;s_m011&quot;"></value>
+        <value value="&quot;s_m012&quot;"></value>
+        <value value="&quot;s_m013&quot;"></value>
+        <value value="&quot;s_m014&quot;"></value>
+        <value value="&quot;s_m015&quot;"></value>
+        <value value="&quot;s_m016&quot;"></value>
+        <value value="&quot;s_m017&quot;"></value>
+        <value value="&quot;s_m018&quot;"></value>
+        <value value="&quot;s_m019&quot;"></value>
+        <value value="&quot;s_m020&quot;"></value>
+        <value value="&quot;s_m021&quot;"></value>
+        <value value="&quot;s_m022&quot;"></value>
+        <value value="&quot;s_m023&quot;"></value>
+        <value value="&quot;s_m024&quot;"></value>
+        <value value="&quot;s_m025&quot;"></value>
+        <value value="&quot;s_m026&quot;"></value>
+        <value value="&quot;s_m027&quot;"></value>
+        <value value="&quot;s_m028&quot;"></value>
+        <value value="&quot;s_m029&quot;"></value>
+        <value value="&quot;s_m030&quot;"></value>
+        <value value="&quot;s_m031&quot;"></value>
+        <value value="&quot;s_m032&quot;"></value>
+        <value value="&quot;s_m033&quot;"></value>
+        <value value="&quot;s_m034&quot;"></value>
+        <value value="&quot;s_m035&quot;"></value>
+        <value value="&quot;s_m036&quot;"></value>
+        <value value="&quot;s_m037&quot;"></value>
+        <value value="&quot;s_m038&quot;"></value>
+        <value value="&quot;s_m039&quot;"></value>
+        <value value="&quot;s_m040&quot;"></value>
+        <value value="&quot;s_m041&quot;"></value>
+        <value value="&quot;s_m042&quot;"></value>
+        <value value="&quot;s_m043&quot;"></value>
+        <value value="&quot;s_m044&quot;"></value>
+        <value value="&quot;s_m045&quot;"></value>
+        <value value="&quot;s_m046&quot;"></value>
+        <value value="&quot;s_m047&quot;"></value>
+        <value value="&quot;s_m048&quot;"></value>
+        <value value="&quot;s_m049&quot;"></value>
+        <value value="&quot;s_m050&quot;"></value>
+        <value value="&quot;s_m051&quot;"></value>
+        <value value="&quot;s_m052&quot;"></value>
+        <value value="&quot;s_m053&quot;"></value>
+        <value value="&quot;s_m054&quot;"></value>
+        <value value="&quot;s_m055&quot;"></value>
+        <value value="&quot;s_m056&quot;"></value>
+        <value value="&quot;s_m057&quot;"></value>
+        <value value="&quot;s_m058&quot;"></value>
+        <value value="&quot;s_m059&quot;"></value>
+        <value value="&quot;s_m060&quot;"></value>
+        <value value="&quot;s_m061&quot;"></value>
+        <value value="&quot;s_m062&quot;"></value>
+        <value value="&quot;s_m063&quot;"></value>
+        <value value="&quot;s_m064&quot;"></value>
+        <value value="&quot;s_m065&quot;"></value>
+        <value value="&quot;s_m066&quot;"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="run-seed">
+        <value value="11"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="calibrate?">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="RED-on?">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="neighbour-on?">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="track-neighbourhood-changes?">
+        <value value="false"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="export-per-tick?">
+        <value value="false"></value>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+</experiments>
