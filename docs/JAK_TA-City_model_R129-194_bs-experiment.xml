@@ -1,5 +1,5 @@
 <experiments>
-  <experiment name="TA_city_morris_R129-194" repetitions="1" sequentialRunOrder="true"  runMetricsEveryStep="true" timeLimit="50">
+  <experiment name="TA_city_morris_R129-194" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="100">
     <setup>set-up</setup>
     <go>go</go>
     <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
@@ -17,6 +17,9 @@
       <metric>ticks</metric>
     </metrics>
     <constants>
+      <enumeratedValueSet variable="run-seed">
+        <value value="11"></value>
+      </enumeratedValueSet>
       <enumeratedValueSet variable="scenario">
         <value value="&quot;s_m001&quot;"></value>
         <value value="&quot;s_m002&quot;"></value>
@@ -84,9 +87,6 @@
         <value value="&quot;s_m064&quot;"></value>
         <value value="&quot;s_m065&quot;"></value>
         <value value="&quot;s_m066&quot;"></value>
-      </enumeratedValueSet>
-      <enumeratedValueSet variable="run-seed">
-        <value value="11"></value>
       </enumeratedValueSet>
       <enumeratedValueSet variable="calibrate?">
         <value value="true"></value>
