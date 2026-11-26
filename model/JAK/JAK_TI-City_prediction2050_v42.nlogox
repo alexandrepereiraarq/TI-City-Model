@@ -273,7 +273,11 @@ to set-scenarios
   ;; code based on https://github.com/NetLogo/models/blob/main/Code%20Examples/Extensions%20Examples/csv/CSV%20Example.nlogox
   ;; https://stackoverflow.com/questions/78982817/how-to-retrieve-values-form-csv-file-in-netlogo
   file-close-all ;; Close any open files
-  set scenarios-file-path "./data/in/scenarios.csv"
+  (ifelse calibrate? 
+    [set scenarios-file-path "./data/in/scenarios.csv"]
+    [set scenarios-file-path "./data/in/scenarios_calibration.csv"]
+  )
+  
   
   if not file-exists? scenarios-file-path [
     error "No file './data/in/scenarios.csv' exists in your home directory!"
