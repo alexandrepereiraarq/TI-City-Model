@@ -1,4 +1,8 @@
 ﻿name,household-number,percent-deprived-households,percent-low-income-households,percent-mid-income-households,percent-high-income-households,slope_coefficient,critical_slope,development_control,estate-developer-number,percent-high-end-developers,run-num,exclusion-file-path,weights-file-path
+s0,29656,10,43,20,27,80,17,60,200,30,125,data/in/exclusion_s0.asc,data/in/weights_s0.csv
+s_random,29656,10,43,20,27,80,17,60,200,30,126,data/in/exclusion_s_random.asc,data/in/weights_s_random.csv
+s_edge,29656,10,43,20,27,80,17,60,200,30,127,data/in/exclusion_s_edge.asc,data/in/weights_s_edge.csv
+s_roadbound,29656,10,43,20,27,80,17,60,200,30,128,data/in/exclusion_s_roadbound.asc,data/in/weights_s_roadbound.csv
 s_m001,29656,5.816326530612246,58.16326530612246,31.02040816326531,4.999999999999986,46.66666666666667,21.666666666666664,70.0,600,26.666666666666668,129,data/in/exclusion_s0.asc,data/in/weights_s_m001.csv
 s_m002,29656,5.816326530612246,58.16326530612246,31.02040816326531,4.999999999999986,46.66666666666667,21.666666666666664,70.0,600,26.666666666666668,130,data/in/exclusion_s0.asc,data/in/weights_s_m002.csv
 s_m003,29656,5.816326530612246,58.16326530612246,31.02040816326531,4.999999999999986,46.66666666666667,21.666666666666664,30.0,600,26.666666666666668,131,data/in/exclusion_s0.asc,data/in/weights_s_m003.csv
