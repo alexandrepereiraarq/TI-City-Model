@@ -1495,9 +1495,17 @@ to export-income-status-as-ascii
   let formatted-tick ifelse-value (tick-length < 3)
     [word "0" tick-string]
     [tick-string]
-  let file-name (word "data/out/r" run-num "/expansion_income_t" formatted-tick ".asc")
-  gis:store-dataset raster file-name
-  print (word file-name " exported")
+  (ifelse calibrate? = true 
+  [
+      let file-name (word "data/out/R" run-num "/seed" run-seed "/expansion_income_t" formatted-tick ".asc")
+    gis:store-dataset raster file-name
+    print (word file-name " exported")]
+    [
+      let file-name (word "data/out/R" run-num "/expansion_income_t" formatted-tick ".asc")
+    gis:store-dataset raster file-name
+    print (word file-name " exported")]
+  )
+  
 end
 
 to export-informal-status-as-ascii
@@ -1510,10 +1518,10 @@ to export-informal-status-as-ascii
     [tick-string]
   (ifelse calibrate? = true 
   [
-      let file-name (word "data/out/r" run-num "/seed" run-seed "/expansion_informal_t" formatted-tick ".asc")
+      let file-name (word "data/out/R" run-num "/seed" run-seed "/expansion_informal_t" formatted-tick ".asc")
     gis:store-dataset raster file-name]
     [
-      let file-name (word "data/out/r" run-num "/expansion_informal_t" formatted-tick ".asc")
+      let file-name (word "data/out/R" run-num "/expansion_informal_t" formatted-tick ".asc")
     gis:store-dataset raster file-name]
   )
   ;;gis:store-dataset raster file-name
@@ -1522,7 +1530,7 @@ end
 ;; APS: created a function to export the grid every tick
 to export-income-status-as-asc-tick
   ;; Save the raster dataset as an ASCII grid with the current tick number
-  ;let target-folder (word "data/out/r" run-num "/")
+  ;let target-folder (word "data/out/R" run-num "/")
   let raster gis:patch-dataset urban-type
   let tick-string word "0" ticks
   let tick-length length tick-string
@@ -1531,10 +1539,10 @@ to export-income-status-as-asc-tick
     [tick-string]
   (ifelse calibrate? = true 
   [
-      let file-name (word "data/out/r" run-num "/seed" run-seed "/expansion_income_t" formatted-tick ".asc")
+      let file-name (word "data/out/R" run-num "/seed" run-seed "/expansion_income_t" formatted-tick ".asc")
     gis:store-dataset raster file-name]
     [
-      let file-name (word "data/out/r" run-num "/expansion_income_t" formatted-tick ".asc")
+      let file-name (word "data/out/R" run-num "/expansion_income_t" formatted-tick ".asc")
     gis:store-dataset raster file-name]
   )
   ;let file-name (word target-folder "expansion_income_t" formatted-tick ".asc")
@@ -1699,7 +1707,7 @@ end
     <monitor x="1926" precision="2" y="211" height="60" fontSize="11" width="106" display="Percent Informal">((count patches with [(informality = 1) and (new-urban = 1)]) / (1 + count patches with [new-urban = 1])) * 100</monitor>
     <slider x="6" step="1" y="490" max="100" width="200" display="slope_coefficient" height="50" min="1" direction="Horizontal" default="80.0" variable="slope_coefficient"></slider>
     <slider x="6" step="1" y="550" max="100" width="200" display="critical_slope" height="50" min="1" direction="Horizontal" default="17.0" variable="critical_slope"></slider>
-    <slider x="6" step="10" y="310" max="1000" width="200" display="estate-developer-number" height="50" min="10" direction="Horizontal" default="200.0" variable="estate-developer-number"></slider>
+    <slider x="6" step="10" y="310" max="1000" width="200" display="estate-developer-number" height="50" min="10" direction="Horizontal" default="600.0" variable="estate-developer-number"></slider>
     <slider x="6" step="1" y="370" max="100" width="200" display="percent-high-end-developers" height="50" min="0" direction="Horizontal" default="30.0" variable="percent-high-end-developers"></slider>
     <slider x="6" step="1" y="430" max="100" width="200" display="percent-mid-end-developers" height="50" min="0" direction="Horizontal" default="70.0" variable="percent-mid-end-developers"></slider>
     <monitor x="332" precision="2" y="698" height="60" fontSize="11" width="115" display="Percent Urbanized"><![CDATA[(count patches with [new-urban = 1] + count patches with [urban = 1]) / (1 + count patches with [districts > 0]) * 100]]></monitor>
@@ -2782,7 +2790,8 @@ Profile: https://research-information.bris.ac.uk/en/persons/felix-s-k-agyemang]]
     <experiment name="TA_city_calibration_R125-128" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="100">
       <setup>set-up</setup>
       <go>go</go>
-      <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
+      <postRun>export-income-status-as-ascii</postRun>
+      <exitCondition><![CDATA[ticks > simulation-period]]></exitCondition>
       <metrics>
         <metric>behaviorspace-run-number</metric>
         <metric>scenario</metric>
@@ -2825,10 +2834,10 @@ Profile: https://research-information.bris.ac.uk/en/persons/felix-s-k-agyemang]]
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="TA_city_morris_R129-194 (1)" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="50">
+    <experiment name="TA_city_morris_R129-194" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="50">
       <setup>set-up</setup>
       <go>go</go>
-      <exitCondition><![CDATA[ticks >= simulation-period]]></exitCondition>
+      <exitCondition><![CDATA[ticks > simulation-period]]></exitCondition>
       <metrics>
         <metric>behaviorspace-run-number</metric>
         <metric>scenario</metric>
@@ -2910,6 +2919,48 @@ Profile: https://research-information.bris.ac.uk/en/persons/felix-s-k-agyemang]]
           <value value="&quot;s_m064&quot;"></value>
           <value value="&quot;s_m065&quot;"></value>
           <value value="&quot;s_m066&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="run-seed">
+          <value value="11"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="calibrate?">
+          <value value="true"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="RED-on?">
+          <value value="true"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="neighbour-on?">
+          <value value="true"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="track-neighbourhood-changes?">
+          <value value="false"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="export-per-tick?">
+          <value value="false"></value>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+    <experiment name="TA_city_morris_R129-130 [s_m001-s_m002]" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="50">
+      <setup>set-up</setup>
+      <go>go</go>
+      <exitCondition><![CDATA[ticks > simulation-period]]></exitCondition>
+      <metrics>
+        <metric>behaviorspace-run-number</metric>
+        <metric>scenario</metric>
+        <metric>run-seed</metric>
+        <metric>(count patches with [new-urban = 1])</metric>
+        <metric>(household-number - count patches with [new-urban = 1])</metric>
+        <metric>(sum [estate-size] of developers with [class = 2 and MED-movement = 1]) - count patches with [pMED-movement = 1]</metric>
+        <metric>(sum [estate-size] of developers with [class = 3 and HED-movement = 1]) - count patches with [pHED-movement = 1]</metric>
+        <metric>count patches with [pMED-movement = 1]</metric>
+        <metric>count patches with [pHED-movement = 1]</metric>
+        <metric>sum [estate-size] of developers with [(class = 2 and MED-movement = 0) or (class = 3 and HED-movement = 0)]</metric>
+        <metric>ticks</metric>
+      </metrics>
+      <constants>
+        <enumeratedValueSet variable="scenario">
+          <value value="&quot;s_m001&quot;"></value>
+          <value value="&quot;s_m002&quot;"></value>
         </enumeratedValueSet>
         <enumeratedValueSet variable="run-seed">
           <value value="11"></value>
