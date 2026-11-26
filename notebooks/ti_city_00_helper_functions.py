@@ -1572,11 +1572,11 @@ def create_folders(
         case_city: str = "JAK",
         seeds_list: list = [11,22,33], 
         runs_list: list = [], 
-        first_run: str = 'R100', 
+        first_run: int = 100, 
         run_type: str = "--dry-run", # or "--create"
         root_folder_path: Path = Path("./"),
-        inputs: str = "all-roads layer + bu-proximity year 2000 (corrected vintage)",
-        code_version: str = "v41",
+        inputs: str = "",
+        code_version: str = "vNN",
         model_mode: str = "calibrate?, RED-on?, neighbour-on?",
         hh_number: str = "",
         status: str = "pending",
@@ -1591,7 +1591,7 @@ def create_folders(
     inputs_folder_path = root_folder_path / f"model/{case_city}/data/in"
 
     last_run = first_run + len(runs_list) - 1
-    manifest_path = docs_folder_path / f"{case_city}_TA-model_manifest_R{first_run}_{last_run}.csv"
+    manifest_path = docs_folder_path / f"{case_city}_TA-City_model_R{first_run}_{last_run}_manifest.csv"
     if not manifest_path.exists():
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.touch()
@@ -1674,7 +1674,7 @@ def create_folders(
     print(f"\nCreated/verified {len(rows)} folders under {root_folder_path}")
 
     # ---- write manifest CSV ----
-    with manifest_path.open("w", newline="") as f:
+    with manifest_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
